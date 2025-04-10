@@ -1,5 +1,4 @@
 import streamlit as st
-import hashlib
 import ollama
 import time
 import uuid
@@ -18,20 +17,23 @@ st.set_page_config(
 if 'session_id' not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-def get_cache_key(query, context):
-    combined = (query + context).encode('utf-8')
-    return hashlib.md5(combined).hexdigest()
 
 def main():
     st.title("Welcome to Fiftytwo AI Help & Knowledge Center")
 
     # Initialize ChromaDB collection
     collection = build_collection()
-
+    
     # Query input form
     with st.form("query_form"):
-        query = st.text_input("Enter your question")
-        submit_button = st.form_submit_button("Submit")
+        query = st.text_area(
+            "Enter your question", 
+            label_visibility="visible",
+            help="Search for Fitytwo's products and services"
+        )
+        
+        # Place button below input and align left
+        submit_button = st.form_submit_button("↩", type="primary")
 
     if submit_button and query:
         if len(query.split()) < 2 or is_gibberish(query) or is_repetitive_input(query):
@@ -76,13 +78,15 @@ def main():
 
                 prompt = (
                     f"You are an AI overview generator based on the following information: '{context}', "
-                    f"tell everything you know about the {query}; however, DON'T assume anything "
+                    f"mention everything you know about the {query}; however, DON'T assume anything "
                     "based on your own knowledge. Moreover, you should not mention anything like The provided "
                     "text does not mention. You should start responding without putting any introduction or conclusion"
                 )
 
                 # Display the results
-                st.markdown("### Response")
+
+                # Create placeholders for response and heading
+                heading_placeholder = st.empty()
                 response_placeholder = st.empty()
                 full_response = ""
 
@@ -95,25 +99,30 @@ def main():
                 for chunk in response_stream:
                     if "response" in chunk:
                         chunk_text = chunk["response"]
+                        # Only show heading when we get the first chunk of content
+                        if not full_response:
+                            heading_placeholder.markdown("##### Response")
+                        
                         full_response += chunk_text
                         response_placeholder.markdown(full_response, unsafe_allow_html=True)
 
                 # Clear the status container after processing is complete
                 status_container.empty()
 
-                # Display sources
-                st.markdown("### Sources")
-                unique_urls = set()
-                for meta in [meta for sublist in results['metadatas'] for meta in sublist]:
-                    unique_urls.add(meta['url'])
+                # Only show sources if we have a response
+                if full_response:
+                    st.markdown("##### Sources:")
+                    unique_urls = set()
+                    for meta in [meta for sublist in results['metadatas'] for meta in sublist]:
+                        unique_urls.add(meta['url'])
 
-                for url in unique_urls:
-                    st.markdown(f"- {url}")
+                    for url in unique_urls:
+                        st.markdown(f"- {url}")
 
-                elapsed_time = time.time() - start_time
-                minutes = int(elapsed_time // 60)
-                seconds = int(elapsed_time % 60)
-                st.info(f"Response time: {minutes}m {seconds}s")
+                    elapsed_time = time.time() - start_time
+                    minutes = int(elapsed_time // 60)
+                    seconds = int(elapsed_time % 60)
+                    st.info(f"Response time: {minutes}m {seconds}s")
            
 
             finally:

@@ -1,10 +1,10 @@
 import asyncio
+import shutil
 import os
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from crawl4ai import AsyncWebCrawler
 import requests
-import json
 import chromadb
 import ollama
 import logging
@@ -153,7 +153,7 @@ async def get_urls_from_local_sitemap(sitemap_path):
         return []
 
 async def crawl_and_embed_url(crawler, url, output_dir, collection):
-    """Crawl a URL, clean content, save, split into chunks, embed, and store in ChromaDB."""
+    """Crawl a URL, clean content, split into chunks, embed, and store in ChromaDB."""
     try:
         last_mod_date = last_modified(url) or "Unknown"
         existing_data = collection.get(where={"url": url}, limit=1)
@@ -171,6 +171,7 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         result = await crawler.arun(url=url)
         cleaned_text = clean_text(result.markdown)
 
+        # Create a temporary file for processing
         filename = url.replace('://', '_').replace('/', '_').replace('?', '_').replace('&', '_')
         if len(filename) > 100:
             filename = filename[:100]
@@ -179,7 +180,7 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(cleaned_text)
-        print(f"Saved: {url} -> {filepath}")
+        print(f"Processing: {url}")
         
         # Using LangChain's RecursiveCharacterTextSplitter to split content
         splitter = RecursiveCharacterTextSplitter(
@@ -190,7 +191,7 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         content_chunks = splitter.split_text(cleaned_text)
         print(f"Split content into {len(content_chunks)} chunks")
         
-        metadata = {"url": url, "last_modified": last_mod_date, "filename": filename}
+        metadata = {"url": url, "last_modified": last_mod_date}
         for i, chunk in enumerate(content_chunks):
             if not chunk.strip():
                 continue
@@ -204,6 +205,11 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
                 metadatas=[chunk_metadata]
             )
             print(f"Embedded chunk {i+1}/{len(content_chunks)} from {url}")
+            
+        # Remove the temporary file after processing
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            
     except Exception as e:
         print(f"Error processing {url}: {str(e)}")
 
@@ -212,13 +218,6 @@ async def main_task():
     sitemap_path = r"sitemap.xml"
     output_dir = "crawled_pages"
     os.makedirs(output_dir, exist_ok=True)
-    metadata_file = os.path.join(output_dir, "url_metadata.json")
-    
-    url_metadata = {}
-    if os.path.exists(metadata_file):
-        with open(metadata_file, 'r', encoding='utf-8') as f:
-            url_metadata = json.load(f)
-        print(f"Loaded metadata for {len(url_metadata)} URLs")
     
     collection = build_collection()
     urls = await get_urls_from_local_sitemap(sitemap_path)
@@ -226,22 +225,16 @@ async def main_task():
     
     async with AsyncWebCrawler() as crawler:
         tasks = [crawl_and_embed_url(crawler, url, output_dir, collection) for url in urls]
-        batch_size = 6
-        print(f"Processing URLs in batches of {batch_size}")
-        for i in range(0, len(tasks), batch_size):
-            batch = tasks[i:i + batch_size]
-            print(f"Processing batch {i//batch_size + 1}/{(len(tasks) + batch_size - 1)//batch_size}")
-            await asyncio.gather(*batch)
+        print(f"Processing {len(tasks)} URLs concurrently")
+        await asyncio.gather(*tasks)
     
-    print(f"Crawling and embedding complete. Results saved to {output_dir}/ and vector database")
+    print(f"Crawling and embedding complete. Vector database updated.")
     
-    all_items = collection.get(include=["metadatas"])
-    for metadata in all_items["metadatas"]:
-        if metadata and "url" in metadata and "last_modified" in metadata:
-            url_metadata[metadata["url"]] = metadata["last_modified"]
-    with open(metadata_file, 'w', encoding='utf-8') as f:
-        json.dump(url_metadata, f, ensure_ascii=False, indent=2)
-    print(f"Updated metadata for {len(url_metadata)} URLs")
+    # Clean up the temporary crawled_pages directory
+    print(f"Cleaning up temporary directory: {output_dir}/")
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+        print(f"Cleaned up temporary directory: {output_dir}/")
 
 async def scheduler():
     """Background scheduler to run main_task every 6 hours."""

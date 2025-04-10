@@ -30,14 +30,24 @@ def build_collection(collection_name="crawled_docs"):
 def is_gibberish(text):
     """Check if input is likely gibberish or too short."""
     text = text.strip()
+    
+    # Check for basic issues
     if len(text) < 3 or text.endswith('[') or text.endswith('(') or text.endswith('{'):
         return True
+        
+    # Split into words and analyze
     words = text.lower().split()
     unique_words = set(words)
+    
+    # Check for single word repetition
     if len(unique_words) == 1 and len(words) > 1:
         return True
+        
+    # Check for low word diversity
     if len(words) >= 3 and len(unique_words) < min(len(words) * 0.5, len(text) * 0.3):
         return True
+        
+    # Check for unbalanced brackets
     brackets = {'[': ']', '(': ')', '{': '}', '"': '"', "'": "'"}
     stack = []
     for char in text:
@@ -51,26 +61,91 @@ def is_gibberish(text):
             stack.pop()
     if stack:
         return True
+        
+    # Check for high consonant ratio (gibberish often has too many consonants)
     consonant_count = sum(1 for c in text.lower() if c in 'bcdfghjklmnpqrstvwxyz!@#$%^&*()_+{}|:"<>?')
     total_chars = len(text)
     if total_chars > 0 and consonant_count / total_chars > 0.7:
         return True
+        
+    # Check for too many numbers or symbols
+    symbol_count = sum(1 for c in text if not c.isalpha() and not c.isspace())
+    if total_chars > 0 and symbol_count / total_chars > 0.3:
+        return True
+        
+    # Check for unusually long words
+    avg_word_length = sum(len(word) for word in words) / max(len(words), 1)
+    if avg_word_length > 15:  # Most English words are shorter than this
+        return True
+        
+    # Check for too few words
     if len(words) < 2:
         return True
+        
     return False
 
 def is_repetitive_input(text):
-    """Check if input consists of repeated words."""
-    words = text.lower().split()
+    """Check if input consists of repeated words, characters, or patterns."""
+    text = text.lower().strip()
+    
+    if not text:
+        return False
+        
+    # Split into words
+    words = text.split()
     if not words:
         return False
+        
+    # Define unique_words set
+    unique_words = set(words)
+        
+    # Check for basic word repetition
     word_counts = {}
     for word in words:
         word_counts[word] = word_counts.get(word, 0) + 1
+        
     if len(word_counts) == 1 and len(words) > 1:
         return True
+        
+    # Check for high frequency of most common word
     most_common_word = max(word_counts.items(), key=lambda x: x[1])
-    if most_common_word[1] / len(words) > 0.7 and len(words) > 2:
+    if most_common_word[1] / len(words) > 0.5 and len(words) > 2:
         return True
+        
+    # Check for character repetition within words
+    for word in unique_words:
+        if len(word) > 3:
+            # Check for character repetition (e.g., "hiiiii")
+            char_counts = {}
+            for char in word:
+                char_counts[char] = char_counts.get(char, 0) + 1
+            most_common_char = max(char_counts.items(), key=lambda x: x[1])
+            if most_common_char[1] > 3 and most_common_char[1] / len(word) > 0.5:
+                return True
+                
+    # Check for repeating patterns (e.g., "hihihi")
+    if len(text) > 5:
+        for pattern_length in range(1, min(5, len(text) // 2)):
+            pattern = text[:pattern_length]
+            # Check if the pattern repeats at least 3 times
+            repetitions = 0
+            for i in range(0, len(text) - pattern_length + 1, pattern_length):
+                if text[i:i+pattern_length] == pattern:
+                    repetitions += 1
+                else:
+                    break
+            if repetitions >= 3:
+                return True
+                
+    # Check for similar words (e.g., "hi hihi hihihi")
+    if len(unique_words) >= 2:
+        for word1 in unique_words:
+            similar_words = 0
+            for word2 in unique_words:
+                if word1 != word2 and (word1 in word2 or word2 in word1):
+                    similar_words += 1
+            if similar_words > 0 and similar_words / len(unique_words) > 0.5:
+                return True
+                
     return False
 
