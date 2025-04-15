@@ -101,7 +101,13 @@ def main():
         )
         button_text = "🟩" if st.session_state.is_processing else "↩"
         button_type = "secondary" if st.session_state.is_processing else "primary"
-        submit_button = st.form_submit_button(button_text, type=button_type)
+
+        if button_text == "🟩":
+            button_help = "Cancel"
+        else:
+            button_help = "Submit"
+
+        submit_button = st.form_submit_button(button_text, type=button_type, help=button_help)
 
     status_container = st.empty()
 
@@ -221,10 +227,10 @@ def main():
 
                 context = "\n".join([doc for sublist in results['documents'] for doc in sublist])
                 prompt = (
-                    f"You are an AI overview generator based on the following contexts: '{context}'--end of contexts, "
+                    f"You are an AI overview generator based on the following contexts given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
                     f"mention everything you know about the {query} only if it is mentioned in the contexts. DON'T assume anything "
                     "based on your own knowledge. Moreover, you should not mention anything like The provided "
-                    "text does not mention. You should start responding without putting any introduction or conclusion"
+                    "text does not mention. You should start responding without putting any introduction or conclusion."
                 )
 
                 heading_placeholder = st.empty()
