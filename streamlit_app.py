@@ -35,6 +35,11 @@ def reset_state():
     st.session_state.stop_requested = False
     st.session_state.is_processing = False
 
+def release_and_dequeue():
+    """Release the lock and dequeue the session"""
+    qm.release_lock(st.session_state.session_id)
+    qm.dequeue_query(st.session_state.session_id)
+
 def handle_stop_and_restart(status_container, force_restart=False):
     """Handle stopping processing and shutting down Ollama if queue is empty.
 
@@ -59,7 +64,7 @@ def check_stale_sessions():
     """Check for and clean up stale sessions"""
     current_time = time.time()
 
-    if current_time - st.session_state.last_activity > 10:  
+    if current_time - st.session_state.last_activity > 3:  
         if 'session_id' in st.session_state:
             qm.dequeue_query(st.session_state.session_id)
             qm.release_lock(st.session_state.session_id)
@@ -118,11 +123,11 @@ def main():
                 qm.dequeue_query(st.session_state.session_id)
                 status_container.empty()
             else:
-                qm.release_lock(st.session_state.session_id)
-                qm.dequeue_query(st.session_state.session_id)
+                release_and_dequeue()
                 handle_stop_and_restart(status_container)
-            st.session_state.is_processing = False
-            st.session_state.stop_requested = False
+                
+            reset_state()
+
             st.rerun()
         elif query:
             if qm.is_in_queue(st.session_state.session_id):
@@ -220,8 +225,7 @@ def main():
 
                 if not results['documents'] or not results['documents'][0]:
                     status_container.warning("No relevant documents found for your query.")
-                    qm.release_lock(st.session_state.session_id)
-                    qm.dequeue_query(st.session_state.session_id)
+                    release_and_dequeue()
                     st.session_state.is_processing = False
                     return
 
@@ -232,6 +236,8 @@ def main():
                     "based on your own knowledge. Moreover, you should not mention anything like The provided "
                     "text does not mention. You should start responding without putting any introduction or conclusion."
                 )
+
+                st.write(prompt)
 
                 heading_placeholder = st.empty()
                 response_placeholder = st.empty()
@@ -279,14 +285,12 @@ def main():
                     handle_stop_and_restart(status_container)
                 else:
                     status_container.error(f"An error occurred: {str(e)}")
-                qm.release_lock(st.session_state.session_id)
-                qm.dequeue_query(st.session_state.session_id)
+                release_and_dequeue()
                 st.session_state.is_processing = False
                 st.rerun()
                 return
             finally:
-                qm.release_lock(st.session_state.session_id)
-                qm.dequeue_query(st.session_state.session_id)
+                release_and_dequeue()
                 if st.session_state.stop_requested:
                     handle_stop_and_restart(status_container)
                     if qm.get_queue_length() > 0:
