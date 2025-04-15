@@ -326,6 +326,11 @@ def clean_first_if_stale():
         r.srem("active_sessions", first)
         r.delete(f"activity_{first}")
         return True  
-    return False   
-       
+    return False
+
+def shutdown_ollama_if_queue_empty():
+    """Shut down Ollama if the query queue is empty"""
+    if get_queue_length() == 0 and not get_lock_holder():
+        return shutdown_ollama()
+    return False
     

@@ -292,5 +292,8 @@ def main():
                     if qm.get_queue_length() > 0:
                         qm.process_next_in_queue()
 
+    qm.shutdown_ollama_if_queue_empty()
+                        
+
 if __name__ == "__main__":
     main()
