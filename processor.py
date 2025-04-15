@@ -153,6 +153,8 @@ def is_repetitive_input(text):
 
     if len(unique_words) >= 2:
         for word1 in unique_words:
+            if len(word1) <= 3:
+                continue
             similar_words = 0
             for word2 in unique_words:
                 if word1 != word2 and (word1 in word2 or word2 in word1):

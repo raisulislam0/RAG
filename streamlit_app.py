@@ -6,17 +6,14 @@ import uuid
 from processor import input_validation, is_repetitive_input, embed_text, build_collection
 import queue_manager as qm
 
-# Page config
 st.set_page_config(
     page_title="Fiftytwo AI Help",
     layout="centered"
 )
 
-# Initialize session ID for queue tracking
 if 'session_id' not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-# Initialize session state variables
 if 'stop_requested' not in st.session_state:
     st.session_state.stop_requested = False
 
@@ -26,7 +23,6 @@ if 'is_processing' not in st.session_state:
 if 'last_activity' not in st.session_state:
     st.session_state.last_activity = time.time()
 
-# Track last queue check time
 if 'last_queue_check' not in st.session_state:
     st.session_state.last_queue_check = time.time()
 
@@ -46,30 +42,24 @@ def handle_stop_and_restart(status_container, force_restart=False):
         status_container: Streamlit container for status messages
         force_restart: If True, force restart Ollama even if there are active queries
     """
-    # Reset processing state to update UI
-    st.session_state.is_processing = False
-    st.session_state.stop_requested = False
+    reset_state()
 
-    # Check for other active queries
     queue_length = qm.get_queue_length()
     lock_holder = qm.get_lock_holder()
     other_active_queries = (queue_length > 0 and qm.get_queue_position(st.session_state.session_id) == -1) or \
                            (lock_holder and lock_holder != st.session_state.session_id)
 
     if not other_active_queries or force_restart:
-        # If no other active queries, shut down Ollama immediately
         qm.shutdown_ollama()
         status_container.empty()
     else:
-        # If there are other queries, clear status and let them proceed
         status_container.empty()
 
 def check_stale_sessions():
     """Check for and clean up stale sessions"""
     current_time = time.time()
 
-    # If last activity was more than 5 minutes ago, clean up
-    if current_time - st.session_state.last_activity > 300:  # 5 minutes
+    if current_time - st.session_state.last_activity > 10:  
         if 'session_id' in st.session_state:
             qm.dequeue_query(st.session_state.session_id)
             qm.release_lock(st.session_state.session_id)
@@ -86,16 +76,15 @@ def ensure_ollama_fresh_start():
 
     if queue_length > 0 or lock_holder:
         qm.ensure_ollama_running()
-    elif qm.should_shutdown_ollama():  # Assumes this checks for 10 seconds of inactivity
+    elif qm.should_shutdown_ollama():  
         qm.shutdown_ollama()
 
 def main():
     ensure_ollama_fresh_start()
     check_stale_sessions()
 
-    # Periodic queue check (every 3 minutes)
     current_time = time.time()
-    if current_time - st.session_state.last_queue_check > 180:
+    if current_time - st.session_state.last_queue_check > 10:
         st.session_state.last_queue_check = current_time
         qm.clean_stale_sessions()
         qm.process_next_in_queue()
@@ -110,7 +99,7 @@ def main():
             label_visibility="visible",
             help="Search for Fiftytwo's products and services"
         )
-        button_text = "⛔" if st.session_state.is_processing else "↩"
+        button_text = "🟩" if st.session_state.is_processing else "↩"
         button_type = "secondary" if st.session_state.is_processing else "primary"
         submit_button = st.form_submit_button(button_text, type=button_type)
 
@@ -153,19 +142,17 @@ def main():
         with st.spinner("Processing..."):
             last_queue_update = 0
             while not qm.is_my_turn(st.session_state.session_id):
-                # Check and remove the first session if it is stale
                 qm.clean_first_if_stale()
                 
-                # Check if stop was requested while waiting
                 if st.session_state.stop_requested:
-                    # Remove from queue and exit
+                  
                     qm.dequeue_query(st.session_state.session_id)
                     status_container.warning("Query cancelled.")
                     st.session_state.is_processing = False
                     st.rerun()
                     return
 
-                # Update activity timestamp to prevent stale detection
+            
                 qm.update_activity(st.session_state.session_id)
 
                 # Update position dynamically
@@ -179,17 +166,16 @@ def main():
                     st.rerun()
                     return
 
-                # Update queue status in the UI
+              
                 if current_pos > 1:
                     status_container.info(f"Your request is in queue. Position: {current_pos}")
                 else:
                     status_container.info("Processing your request...")
 
-                # Periodically check if we should process the next query (every 10 seconds)
+
                 current_time = time.time()
-                if current_time - last_queue_update > 10:
+                if current_time - last_queue_update > 1:
                     last_queue_update = current_time
-                    # If we're first in queue but not processing, try to process
                     if current_pos == 1 and not lock_holder:
                         qm.process_next_in_queue()
 
@@ -235,8 +221,8 @@ def main():
 
                 context = "\n".join([doc for sublist in results['documents'] for doc in sublist])
                 prompt = (
-                    f"You are an AI overview generator based on the following information: '{context}', "
-                    f"mention everything you know about the {query}; however, DON'T assume anything "
+                    f"You are an AI overview generator based on the following contexts: '{context}'--end of contexts, "
+                    f"mention everything you know about the {query} only if it is mentioned in the contexts. DON'T assume anything "
                     "based on your own knowledge. Moreover, you should not mention anything like The provided "
                     "text does not mention. You should start responding without putting any introduction or conclusion"
                 )
@@ -259,7 +245,7 @@ def main():
                         break
 
                     chunk_counter += 1
-                    if chunk_counter % 10 == 0:
+                    if chunk_counter % 2 == 0:
                         qm.update_activity(st.session_state.session_id)
 
                     if "response" in chunk:

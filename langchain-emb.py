@@ -5,11 +5,11 @@ import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from crawl4ai import AsyncWebCrawler
 import requests
-import chromadb
 import ollama
 import logging
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import re
+from processor import build_collection
 
 # Suppress ChromaDB logs
 logging.getLogger('chromadb').setLevel(logging.ERROR)
@@ -124,21 +124,7 @@ def embed_text(text, model="all-minilm"):
     response = ollama.embed(model=model, input=text)
     return response["embeddings"][0]
 
-def build_collection(collection_name="crawled_docs"):
-    """Create or retrieve a ChromaDB collection."""
-    db_path = os.path.join(os.getcwd(), "chroma_db")
-    client = chromadb.PersistentClient(path=db_path)
-    try:
-        collection = client.get_collection(name=collection_name)
-        print(f"Using existing database with {collection.count()} documents...")
-        return collection
-    except Exception:
-        collection = client.create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"}
-        )
-        print("Created new collection")
-    return collection
+
 
 async def get_urls_from_local_sitemap(sitemap_path):
     """Parse a local sitemap XML file to get a list of URLs."""
@@ -184,8 +170,8 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         
         # Using LangChain's RecursiveCharacterTextSplitter to split content
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1500,  
-            chunk_overlap=750,  
+            chunk_size=1000,  
+            chunk_overlap=400,  
             separators=["\n\n", "\n", ".", " ", ""]
         )
         content_chunks = splitter.split_text(cleaned_text)
