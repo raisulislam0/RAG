@@ -10,7 +10,7 @@ r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 QUEUE_KEY = "query_queue"
 LOCK_KEY = "query_lock"
 LOCK_EXPIRY = 5  
-ACTIVITY_TIMEOUT = 120  
+ACTIVITY_TIMEOUT = 180  
 OLLAMA_IDLE_THRESHOLD = 60  
 OLLAMA_AUTO_SHUTDOWN_SECONDS = 1 
 

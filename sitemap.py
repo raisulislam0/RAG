@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom
 import datetime
 import time
-import random
 
 class SitemapGenerator:
     def __init__(self, start_url, output_file="sitemap.xml"):
@@ -48,7 +47,7 @@ class SitemapGenerator:
             return False
             
         # Skip URLs with certain file extensions
-        ignored_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz']
+        ignored_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.xml']
         if any(url.lower().endswith(ext) for ext in ignored_extensions):
             return False
             
@@ -80,9 +79,7 @@ class SitemapGenerator:
                 
             self.visited_urls.add(url)
             
-            try:
-                # Add a short delay to avoid overwhelming the server
-                time.sleep(random.uniform(0.5, 1.5))
+            try:        
                 
                 print(f"Crawling: {url}")
                 response = requests.get(url, timeout=10)
@@ -93,8 +90,9 @@ class SitemapGenerator:
                     continue
                     
                 # Add to sitemap
-                self.sitemap_urls.append(url)
-                pages_crawled += 1
+                if url != self.start_url:
+                    self.sitemap_urls.append(url)
+                    pages_crawled += 1
                 
                 # Parse HTML
                 soup = BeautifulSoup(response.text, 'html.parser')
@@ -133,15 +131,7 @@ class SitemapGenerator:
             # Add last modified date
             lastmod = ET.SubElement(url_element, "lastmod")
             lastmod.text = current_date
-            
-            # Add change frequency
-            changefreq = ET.SubElement(url_element, "changefreq")
-            changefreq.text = "monthly"
-            
-            # Add priority
-            priority = ET.SubElement(url_element, "priority")
-            priority.text = "0.8"
-            
+                       
         # Convert to string and pretty print
         xml_str = ET.tostring(urlset, encoding="utf-8")
         dom = xml.dom.minidom.parseString(xml_str)
@@ -164,9 +154,8 @@ def scheduler():
     while True:
         print("Starting sitemap generation cycle...")
         generator = SitemapGenerator(start_url)
-        generator.run(max_pages=500)  # Adjust the max_pages as needed
+        generator.run(max_pages=500)  
         print("Sitemap generation cycle complete. Sleeping for 6 hours...\n")
-        # Sleep for 6 hours (6 * 3600 seconds)
         time.sleep(6 * 3600)
 
 if __name__ == "__main__":

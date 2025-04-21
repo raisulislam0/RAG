@@ -237,7 +237,7 @@ def main():
                     "text does not mention. You should start responding without putting any introduction or conclusion."
                 )
 
-                st.write(prompt)
+                #st.write(prompt)
 
                 heading_placeholder = st.empty()
                 response_placeholder = st.empty()

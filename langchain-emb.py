@@ -170,7 +170,7 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         
         # Using LangChain's RecursiveCharacterTextSplitter to split content
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,  
+            chunk_size=2000,  
             chunk_overlap=400,  
             separators=["\n\n", "\n", ".", " ", ""]
         )
