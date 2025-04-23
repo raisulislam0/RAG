@@ -5,11 +5,11 @@ import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from crawl4ai import AsyncWebCrawler
 import requests
-import ollama
 import logging
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import re
-from processor import build_collection
+from processor import build_collection, embed_text
+from time import time
 
 # Suppress ChromaDB logs
 logging.getLogger('chromadb').setLevel(logging.ERROR)
@@ -67,9 +67,8 @@ def clean_text(html_content):
     text = re.sub(r'www\.\S+', '', text)                        
     text = re.sub(r'\[.*?\]\s*https?://\S+', '', text)          
     text = re.sub(r'\[\s*\]', '', text)                         
-    text = re.sub(r'\[.*?\]', '', text)                         
+    text = re.sub(r'\[.*?\]', '', text) #non-greedy match [first] and [second]                        
 
-    # Remove specific phrases (case insensitive)
     text = re.sub(r'Last update:\s+\d{1,2}\s+\w+,?\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+CET.*?(?=\n|$)', '', text, flags=re.IGNORECASE)
     text = re.sub(r'Share this page with your colleagues.*?(?=\n|$)', '', text)
     
@@ -79,14 +78,12 @@ def clean_text(html_content):
         r'Account Settings Logout Filter:'
     ]
     
-    # Apply exact pattern cleaning first, repeatedly until no more matches
     for pattern in exact_patterns:
         old_text = ""
         while old_text != text:
             old_text = text
             text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     
-    # 2. Then apply the more general patterns
     general_patterns = [
         r'Copy link',
         r'Thanks for sharing',
@@ -118,12 +115,6 @@ def clean_text(html_content):
     text = re.sub(r'[^\w\s\.\-\'\,\;\:\?]', '', text)
     
     return text.strip()
-
-def embed_text(text, model="all-minilm"):
-    """Generate an embedding for the given text using Ollama."""
-    response = ollama.embed(model=model, input=text)
-    return response["embeddings"][0]
-
 
 
 async def get_urls_from_local_sitemap(sitemap_path):
@@ -213,22 +204,22 @@ async def main_task():
         tasks = [crawl_and_embed_url(crawler, url, output_dir, collection) for url in urls]
         print(f"Processing {len(tasks)} URLs concurrently")
         await asyncio.gather(*tasks)
-    
+        
     print(f"Crawling and embedding complete. Vector database updated.")
     
-    # Clean up the temporary crawled_pages directory
-    print(f"Cleaning up temporary directory: {output_dir}/")
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
-        print(f"Cleaned up temporary directory: {output_dir}/")
+        
 
 async def scheduler():
     """Background scheduler to run main_task every 6 hours."""
     while True:
+        start_time = time()
         print("Starting new crawl cycle...")
         await main_task()
-        print("Cycle complete. Sleeping for 6 hours...")
-        await asyncio.sleep(6 * 3600)
+        print(time() - start_time)
+        print("Cycle complete. Sleeping for 1 hour...")
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     asyncio.run(scheduler())

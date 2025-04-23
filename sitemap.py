@@ -1,10 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import urllib.parse
+import urllib.parse as UP
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
-import datetime
-import time
+from time import sleep
 
 class SitemapGenerator:
     def __init__(self, start_url, output_file="sitemap.xml"):
@@ -13,11 +12,11 @@ class SitemapGenerator:
         self.base_url = self._get_base_url(start_url)
         self.visited_urls = set()
         self.sitemap_urls = []
-        self.domain = urllib.parse.urlparse(start_url).netloc
+        self.domain = UP.urlparse(start_url).netloc
         
     def _get_base_url(self, url):
         """Extract the base URL (scheme + domain)"""
-        parsed = urllib.parse.urlparse(url)
+        parsed = UP.urlparse(url)
         return f"{parsed.scheme}://{parsed.netloc}"
     
     def _normalize_url(self, url, parent_url):
@@ -31,7 +30,7 @@ class SitemapGenerator:
             
         # Convert to absolute URL
         if not url.startswith(('http://', 'https://')):
-            return urllib.parse.urljoin(parent_url, url)
+            return UP.urljoin(parent_url, url)
         
         return url
         
@@ -40,7 +39,8 @@ class SitemapGenerator:
         if not url:
             return False
             
-        parsed = urllib.parse.urlparse(url)
+        parsed = UP.urlparse(url)
+        
         
         # Check if URL is in the same domain
         if parsed.netloc != self.domain:
@@ -96,6 +96,7 @@ class SitemapGenerator:
                 
                 # Parse HTML
                 soup = BeautifulSoup(response.text, 'html.parser')
+
                 
                 # Extract links
                 for link in soup.find_all('a', href=True):
@@ -117,8 +118,6 @@ class SitemapGenerator:
         # Create the root element
         urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         
-        # Current date in ISO format
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
         
         # Add URLs to sitemap
         for url in self.sitemap_urls:
@@ -128,9 +127,6 @@ class SitemapGenerator:
             loc = ET.SubElement(url_element, "loc")
             loc.text = url
             
-            # Add last modified date
-            lastmod = ET.SubElement(url_element, "lastmod")
-            lastmod.text = current_date
                        
         # Convert to string and pretty print
         xml_str = ET.tostring(urlset, encoding="utf-8")
@@ -156,7 +152,7 @@ def scheduler():
         generator = SitemapGenerator(start_url)
         generator.run(max_pages=500)  
         print("Sitemap generation cycle complete. Sleeping for 6 hours...\n")
-        time.sleep(6 * 3600)
+        sleep(6 * 3600)
 
 if __name__ == "__main__":
     scheduler()
