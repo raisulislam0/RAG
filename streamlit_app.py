@@ -8,7 +8,8 @@ import queue_manager as qm
 
 st.set_page_config(
     page_title="Fiftytwo AI Help",
-    layout="centered"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
 if 'session_id' not in st.session_state:
@@ -25,6 +26,14 @@ if 'last_activity' not in st.session_state:
 
 if 'last_queue_check' not in st.session_state:
     st.session_state.last_queue_check = time.time()
+
+
+if 'query_history' not in st.session_state:
+    st.session_state.query_history = []
+
+
+if 'current_response' not in st.session_state:
+    st.session_state.current_response = {"query": "", "response": "", "sources": []}
 
 def request_stop():
     """Set the stop flag to true and handle cleanup"""
@@ -94,6 +103,21 @@ def main():
         qm.clean_stale_sessions()
         qm.process_next_in_queue()
 
+    with st.sidebar:
+        st.title("Response History")
+        if st.session_state.query_history:
+            for i, item in enumerate(reversed(st.session_state.query_history)):
+                with st.expander(f"Query: {item['query'][:30]}{'...' if len(item['query']) > 30 else ''}"):
+                    st.markdown(f"**Response:** {item['response']}")
+                    st.markdown("**Sources:**")
+                    for url in item['sources']:
+                        st.markdown(f"- {url}")
+                    
+                    
+        else:
+            st.write("No previous queries")
+
+    # Main content area
     st.title("Welcome to Fiftytwo AI Help & Knowledge Center")
 
     collection = build_collection()
@@ -115,6 +139,17 @@ def main():
         submit_button = st.form_submit_button(button_text, type=button_type, help=button_help)
 
     status_container = st.empty()
+
+    # Display current response only when not actively processing a new query
+    if st.session_state.current_response["response"] and not st.session_state.is_processing:
+        st.markdown("##### Response")
+        st.markdown(st.session_state.current_response["response"], unsafe_allow_html=True)
+        
+        if st.session_state.current_response["sources"]:
+            st.markdown("##### Sources:")
+            for url in st.session_state.current_response["sources"]:
+                st.markdown(f"- {url}")
+            st.markdown(f"**Time:** {item.get('time', '')}")
 
     if submit_button:
         if st.session_state.is_processing:
@@ -147,22 +182,25 @@ def main():
             success = qm.enqueue_query(st.session_state.session_id)
             if not success:
                 status_container.warning("Your query is already in the queue.")
+            
+            # When a valid query starts processing, clear current response display
+            # This keeps the previous response visible until a new query is actually processing
+            # and ensures it's already in history for reference
             st.rerun()
 
     if st.session_state.is_processing and not st.session_state.stop_requested:
-        with st.spinner("Processing..."):
+        process_str = "Processing..."
+        with st.spinner(process_str):
             last_queue_update = 0
             while not qm.is_my_turn(st.session_state.session_id):
                 qm.clean_first_if_stale()
                 
                 if st.session_state.stop_requested:
-                  
                     qm.dequeue_query(st.session_state.session_id)
                     status_container.warning("Query cancelled.")
                     st.session_state.is_processing = False
                     st.rerun()
                     return
-
             
                 qm.update_activity(st.session_state.session_id)
 
@@ -177,12 +215,10 @@ def main():
                     st.rerun()
                     return
 
-              
                 if current_pos > 1:
                     status_container.info(f"Your request is in queue. Position: {current_pos}")
                 else:
                     status_container.info("Processing your request...")
-
 
                 current_time = time.time()
                 if current_time - last_queue_update > 1:
@@ -237,9 +273,6 @@ def main():
                     "text does not mention. You should start responding without putting any introduction or conclusion."
                 )
 
-                #st.write(prompt)
-
-                heading_placeholder = st.empty()
                 response_placeholder = st.empty()
                 full_response = ""
                 status_container.info("Processing your request...")
@@ -262,23 +295,42 @@ def main():
 
                     if "response" in chunk:
                         chunk_text = chunk["response"]
-                        if not full_response:
-                            heading_placeholder.markdown("##### Response")
                         full_response += chunk_text
                         response_placeholder.markdown(full_response, unsafe_allow_html=True)
 
                 if not st.session_state.stop_requested and full_response:
                     status_container.empty()
-                    st.markdown("##### Sources:")
                     unique_urls = set()
                     for meta in [meta for sublist in results['metadatas'] for meta in sublist]:
                         unique_urls.add(meta['url'])
-                    for url in unique_urls:
-                        st.markdown(f"- {url}")
+                    
+                    sources_list = list(unique_urls)
+                    
                     elapsed_time = time.time() - start_time
                     minutes = int(elapsed_time // 60)
                     seconds = int(elapsed_time % 60)
-                    st.info(f"Response time: {minutes}m {seconds}s")
+                    time_str = f"{minutes}m {seconds}s"
+                    
+                    # Store the current response in session state
+                    st.session_state.current_response = {
+                        "query": query,
+                        "response": full_response,
+                        "sources": sources_list
+                    }
+                    
+                    # Store the query and response in history
+                    st.session_state.query_history.append({
+                        "query": query,
+                        "response": full_response,
+                        "sources": sources_list,
+                        "time": time_str
+                    })
+                    
+                    st.info(f"Response time: {time_str}")
+                    
+                    # Auto-reset the button state after response is complete
+                    st.session_state.is_processing = False
+                    st.rerun()
 
             except Exception as e:
                 if st.session_state.stop_requested:
