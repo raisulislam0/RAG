@@ -11,8 +11,7 @@ QUEUE_KEY = "query_queue"
 LOCK_KEY = "query_lock"
 LOCK_EXPIRY = 5  
 ACTIVITY_TIMEOUT = 180  
-OLLAMA_IDLE_THRESHOLD = 60  
-OLLAMA_AUTO_SHUTDOWN_SECONDS = 1 
+
 
 # Track when Ollama was last active
 LAST_OLLAMA_ACTIVITY_KEY = "last_ollama_activity"
@@ -99,40 +98,30 @@ def get_ollama_idle_time():
         return 0
     return time.time() - float(last_activity)
 
-def is_ollama_idle():
-    try:
-        ollama_processes = [p for p in psutil.process_iter(['pid', 'name']) if 'ollama' in p.info['name'].lower()]
-        if not ollama_processes:
-            return True
-        for proc in ollama_processes:
-            proc.cpu_percent(interval=None)
-        time.sleep(0.5)
-        total_cpu = 0
-        for proc in ollama_processes:
-            try:
-                cpu = proc.cpu_percent(interval=None)
-                total_cpu += cpu
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        if total_cpu >= OLLAMA_IDLE_THRESHOLD:
-            update_ollama_activity()
-        return total_cpu < OLLAMA_IDLE_THRESHOLD
-    except Exception as e:
-        print(f"Error checking Ollama process: {e}")
-        return False
-
-def should_shutdown_ollama():
-    # Since we want to keep Ollama running, always return False
-    return False
 
 def interrupt_ollama():
     """Send SIGINT to the Ollama process to gracefully interrupt processing"""
     try:
+        # Instead of killing the process, we'll use Ollama's API to cancel the generation
+        import requests
+        try:
+            # Try to cancel any running generation using Ollama's API
+            requests.post('http://localhost:11434/api/generate', 
+                         json={'prompt': '', 'model': ''}, 
+                         timeout=1)
+            return True
+        except Exception as e:
+            print(f"Error canceling Ollama generation via API: {e}")
+            
+        # Fallback: Try to send SIGINT to Ollama process
+        # This should interrupt the current generation without stopping the server
         ollama_procs = [p for p in psutil.process_iter(['pid', 'name']) if 'ollama' in p.info['name'].lower()]
         if ollama_procs:
             for proc in ollama_procs:
                 try:
-                    os.kill(proc.pid, signal.SIGINT)  # Send Ctrl+C equivalent
+                    # Send SIGINT (Ctrl+C equivalent) instead of terminating
+                    os.kill(proc.pid, signal.SIGINT)
+                    print(f"Sent SIGINT to Ollama process {proc.pid}")
                 except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as e:
                     print(f"Error sending SIGINT to Ollama process {proc.pid}: {e}")
             return True
@@ -207,7 +196,7 @@ def clean_stale_sessions():
     if lock_holder and is_session_stale(lock_holder):
         r.delete(LOCK_KEY)
         stale_found = True
-    if stale_found and is_ollama_idle() and get_queue_length() > 0:
+    if stale_found and get_queue_length() > 0:
         process_next_in_queue()
 
 def clean_first_if_stale():
