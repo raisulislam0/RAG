@@ -1,36 +1,10 @@
-# Core dependencies
 streamlit
-redis
 ollama
+redis
 psutil
-
-# Vector database
-chromadb==0.3.26
-sentence-transformers
-
-# Web crawling and processing
 requests
 beautifulsoup4
-lxml
-crawl4ai
-urllib3
-
-# Text processing
+chromadb
+asyncio
 langchain
-regex
-
-# XML processing
-elementpath
-
-# Async support
-aiohttp
-
-# Monitoring and logging
-prometheus-client
-python-dotenv
-
-
-
-
-
-
+crawl4ai
