@@ -1,31 +1,33 @@
 # Core dependencies
-redis==5.0.1
-ollama==0.1.6
-psutil==5.9.8
+streamlit
+redis
+ollama
+psutil
 
 # Vector database
-chromadb==0.4.22
-sentence-transformers==2.2.2
+chromadb
+sentence-transformers
 
 # Web crawling and processing
-requests==2.31.0
-beautifulsoup4==4.12.2
-lxml==4.9.3
-crawl4ai==0.1.5
-urllib3==2.0.7
+requests
+beautifulsoup4
+lxml
+crawl4ai
+urllib3
 
 # Text processing
-langchain==0.1.4
-langchain-text-splitters==0.0.1
-numpy==1.24.4
-regex==2023.10.3
+langchain
+langchain-text-splitters
+numpy
+regex
 
 # XML processing
-elementpath>=2.5.0
+elementpath
 
 # Async support
-aiohttp==3.9.1
+aiohttp
 
 # Monitoring and logging
-prometheus-client==0.19.0
-python-dotenv==1.0.0
+prometheus-client
+python-dotenv
+
