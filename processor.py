@@ -1,4 +1,16 @@
 import os
+import sys
+
+# Check if running on Streamlit Cloud
+if os.environ.get('STREAMLIT_SHARING_MODE') == 'streamlit':
+    # Try to use pysqlite3 if available
+    try:
+        __import__('pysqlite3')
+        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    except ImportError:
+        # If pysqlite3 is not available, continue with system sqlite3
+        pass
+
 import chromadb
 import ollama
 import logging

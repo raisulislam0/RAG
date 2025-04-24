@@ -1,3 +1,18 @@
+# SQLite patch for ChromaDB compatibility on Streamlit Cloud
+import os
+import sys
+import importlib.util
+
+# Check if running on Streamlit Cloud
+if os.environ.get('STREAMLIT_SHARING_MODE') == 'streamlit':
+    # Try to use pysqlite3 if available
+    try:
+        __import__('pysqlite3')
+        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    except ImportError:
+        # If pysqlite3 is not available, continue with system sqlite3
+        pass
+
 import streamlit as st
 import ollama
 from time import time, sleep
