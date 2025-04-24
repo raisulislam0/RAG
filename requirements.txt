@@ -5,6 +5,7 @@ ollama
 psutil
 
 # Vector database
+pydantic<2.0.0
 chromadb==0.3.26
 sentence-transformers
 fastapi
@@ -32,6 +33,7 @@ aiohttp
 # Monitoring and logging
 prometheus-client
 python-dotenv
+
 
 
 
