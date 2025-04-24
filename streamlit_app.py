@@ -1,7 +1,6 @@
 # SQLite patch for ChromaDB compatibility on Streamlit Cloud
 import os
 import sys
-import importlib.util
 
 # Check if running on Streamlit Cloud
 if os.environ.get('STREAMLIT_SHARING_MODE') == 'streamlit':
