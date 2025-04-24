@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "streamlit run streamlit_app.py"
+healthcheckPath = "/"
+healthcheckTimeout = 100
