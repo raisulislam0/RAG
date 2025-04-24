@@ -1,5 +1,4 @@
 import asyncio
-import shutil
 import os
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
@@ -11,6 +10,7 @@ import re
 from processor import build_collection, embed_text
 from time import time
 
+import queue_manager as qm
 # Suppress ChromaDB logs
 logging.getLogger('chromadb').setLevel(logging.ERROR)
 
@@ -192,6 +192,7 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
 
 async def main_task():
     """Run the crawling and embedding process once."""
+
     sitemap_path = r"sitemap.xml"
     output_dir = "crawled_pages"
     os.makedirs(output_dir, exist_ok=True)
@@ -208,7 +209,7 @@ async def main_task():
     print(f"Crawling and embedding complete. Vector database updated.")
     
     if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
+        os.rmdir(output_dir)
         
 
 async def scheduler():
@@ -216,6 +217,7 @@ async def scheduler():
     while True:
         start_time = time()
         print("Starting new crawl cycle...")
+        qm.start_ollama()
         await main_task()
         print(time() - start_time)
         print("Cycle complete. Sleeping for 1 hour...")

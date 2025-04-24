@@ -1,7 +1,7 @@
 import streamlit as st
 import ollama
-import time
-import uuid
+from time import time, sleep
+from uuid import uuid4 
 
 from processor import input_validation, is_repetitive_input, embed_text, build_collection
 import queue_manager as qm
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 if 'session_id' not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.session_id = str(uuid4())
 
 if 'stop_requested' not in st.session_state:
     st.session_state.stop_requested = False
@@ -22,15 +22,13 @@ if 'is_processing' not in st.session_state:
     st.session_state.is_processing = False
 
 if 'last_activity' not in st.session_state:
-    st.session_state.last_activity = time.time()
+    st.session_state.last_activity = time()
 
 if 'last_queue_check' not in st.session_state:
-    st.session_state.last_queue_check = time.time()
-
+    st.session_state.last_queue_check = time()
 
 if 'query_history' not in st.session_state:
     st.session_state.query_history = []
-
 
 if 'current_response' not in st.session_state:
     st.session_state.current_response = {"query": "", "response": "", "sources": []}
@@ -50,54 +48,47 @@ def release_and_dequeue():
     qm.dequeue_query(st.session_state.session_id)
 
 def handle_stop_and_restart(status_container, force_restart=False):
-    """Handle stopping processing and shutting down Ollama if queue is empty.
+    """Handle stopping processing and interrupting Ollama if needed.
 
     Args:
         status_container: Streamlit container for status messages
-        force_restart: If True, force restart Ollama even if there are active queries
+        force_restart: If True, force interrupt Ollama even if there are active queries
     """
     reset_state()
-
     queue_length = qm.get_queue_length()
     lock_holder = qm.get_lock_holder()
     other_active_queries = (queue_length > 0 and qm.get_queue_position(st.session_state.session_id) == -1) or \
                            (lock_holder and lock_holder != st.session_state.session_id)
 
     if not other_active_queries or force_restart:
-        qm.shutdown_ollama()
+        qm.interrupt_ollama()  # Send SIGINT to Ollama
         status_container.empty()
     else:
         status_container.empty()
 
 def check_stale_sessions():
     """Check for and clean up stale sessions"""
-    current_time = time.time()
-
-    if current_time - st.session_state.last_activity > 3:  
+    current_time = time()
+    if current_time - st.session_state.last_activity > 3:
         if 'session_id' in st.session_state:
             qm.dequeue_query(st.session_state.session_id)
             qm.release_lock(st.session_state.session_id)
         reset_state()
         st.session_state.last_activity = current_time
-
     st.session_state.last_activity = current_time
     qm.clean_stale_sessions()
 
 def ensure_ollama_fresh_start():
-    """Ensure Ollama is running when needed and shuts down when idle"""
+    """Ensure Ollama is running when needed"""
     queue_length = qm.get_queue_length()
     lock_holder = qm.get_lock_holder()
-
     if queue_length > 0 or lock_holder:
         qm.ensure_ollama_running()
-    elif qm.should_shutdown_ollama():  
-        qm.shutdown_ollama()
 
 def main():
     ensure_ollama_fresh_start()
     check_stale_sessions()
-
-    current_time = time.time()
+    current_time = time()
     if current_time - st.session_state.last_queue_check > 10:
         st.session_state.last_queue_check = current_time
         qm.clean_stale_sessions()
@@ -112,14 +103,11 @@ def main():
                     st.markdown("**Sources:**")
                     for url in item['sources']:
                         st.markdown(f"- {url}")
-                    
-                    
+                    st.markdown(f"**Time:** {item.get('time', '')}")
         else:
             st.write("No previous queries")
 
-    # Main content area
     st.title("Welcome to Fiftytwo AI Help & Knowledge Center")
-
     collection = build_collection()
 
     with st.form("query_form", clear_on_submit=False):
@@ -128,28 +116,21 @@ def main():
             label_visibility="visible",
             help="Search for Fiftytwo's products and services"
         )
-        button_text = "🟩" if st.session_state.is_processing else "↩"
+        button_text = "🟥 Stop" if st.session_state.is_processing else "↩"
         button_type = "secondary" if st.session_state.is_processing else "primary"
-
-        if button_text == "🟩":
-            button_help = "Cancel"
-        else:
-            button_help = "Submit"
-
+        button_help = "Cancel" if button_text == "🟥 Stop" else "Submit"
         submit_button = st.form_submit_button(button_text, type=button_type, help=button_help)
 
     status_container = st.empty()
 
-    # Display current response only when not actively processing a new query
     if st.session_state.current_response["response"] and not st.session_state.is_processing:
         st.markdown("##### Response")
         st.markdown(st.session_state.current_response["response"], unsafe_allow_html=True)
-        
         if st.session_state.current_response["sources"]:
             st.markdown("##### Sources:")
             for url in st.session_state.current_response["sources"]:
                 st.markdown(f"- {url}")
-            st.markdown(f"**Time:** {item.get('time', '')}")
+            st.markdown(f"**Time:** {st.session_state.current_response.get('time', '')}")
 
     if submit_button:
         if st.session_state.is_processing:
@@ -160,9 +141,7 @@ def main():
             else:
                 release_and_dequeue()
                 handle_stop_and_restart(status_container)
-                
             reset_state()
-
             st.rerun()
         elif query:
             if qm.is_in_queue(st.session_state.session_id):
@@ -170,22 +149,15 @@ def main():
                 st.session_state.is_processing = True
                 st.rerun()
                 return
-
             reset_state()
-            st.session_state.last_activity = time.time()
-
+            st.session_state.last_activity = time()
             if len(query.split()) < 2 or input_validation(query) or is_repetitive_input(query):
                 st.error("Please enter a valid question.")
                 return
-
             st.session_state.is_processing = True
             success = qm.enqueue_query(st.session_state.session_id)
             if not success:
                 status_container.warning("Your query is already in the queue.")
-            
-            # When a valid query starts processing, clear current response display
-            # This keeps the previous response visible until a new query is actually processing
-            # and ensures it's already in history for reference
             st.rerun()
 
     if st.session_state.is_processing and not st.session_state.stop_requested:
@@ -194,39 +166,30 @@ def main():
             last_queue_update = 0
             while not qm.is_my_turn(st.session_state.session_id):
                 qm.clean_first_if_stale()
-                
                 if st.session_state.stop_requested:
                     qm.dequeue_query(st.session_state.session_id)
                     status_container.warning("Query cancelled.")
                     st.session_state.is_processing = False
                     st.rerun()
                     return
-            
                 qm.update_activity(st.session_state.session_id)
-
-                # Update position dynamically
                 current_pos = qm.get_queue_position(st.session_state.session_id)
                 lock_holder = qm.get_lock_holder()
-
-                # If position is -1, we've been removed from queue
                 if current_pos == -1:
                     status_container.empty()
                     st.session_state.is_processing = False
                     st.rerun()
                     return
-
                 if current_pos > 1:
                     status_container.info(f"Your request is in queue. Position: {current_pos}")
                 else:
                     status_container.info("Processing your request...")
-
-                current_time = time.time()
+                current_time = time()
                 if current_time - last_queue_update > 1:
                     last_queue_update = current_time
                     if current_pos == 1 and not lock_holder:
                         qm.process_next_in_queue()
-
-                time.sleep(1)
+                sleep(1)
 
             status_container.info("Processing your request...")
             if not qm.try_lock(st.session_state.session_id):
@@ -277,7 +240,7 @@ def main():
                 full_response = ""
                 status_container.info("Processing your request...")
 
-                start_time = time.time()
+                start_time = time()
                 if st.session_state.stop_requested:
                     handle_stop_and_restart(status_container)
                     return
@@ -288,11 +251,9 @@ def main():
                     if st.session_state.stop_requested:
                         handle_stop_and_restart(status_container)
                         break
-
                     chunk_counter += 1
                     if chunk_counter % 2 == 0:
                         qm.update_activity(st.session_state.session_id)
-
                     if "response" in chunk:
                         chunk_text = chunk["response"]
                         full_response += chunk_text
@@ -303,32 +264,24 @@ def main():
                     unique_urls = set()
                     for meta in [meta for sublist in results['metadatas'] for meta in sublist]:
                         unique_urls.add(meta['url'])
-                    
                     sources_list = list(unique_urls)
-                    
-                    elapsed_time = time.time() - start_time
+                    elapsed_time = time() - start_time
                     minutes = int(elapsed_time // 60)
                     seconds = int(elapsed_time % 60)
                     time_str = f"{minutes}m {seconds}s"
-                    
-                    # Store the current response in session state
                     st.session_state.current_response = {
                         "query": query,
                         "response": full_response,
-                        "sources": sources_list
+                        "sources": sources_list,
+                        "time": time_str
                     }
-                    
-                    # Store the query and response in history
                     st.session_state.query_history.append({
                         "query": query,
                         "response": full_response,
                         "sources": sources_list,
                         "time": time_str
                     })
-                    
                     st.info(f"Response time: {time_str}")
-                    
-                    # Auto-reset the button state after response is complete
                     st.session_state.is_processing = False
                     st.rerun()
 
@@ -353,9 +306,6 @@ def main():
                     st.session_state.is_processing = False
                     if qm.get_queue_length() > 0:
                         qm.process_next_in_queue()
-
-    qm.shutdown_ollama_if_queue_empty()
-                        
 
 if __name__ == "__main__":
     main()
