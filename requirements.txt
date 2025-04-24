@@ -5,7 +5,6 @@ ollama
 psutil
 
 # Vector database
-sqlite3
 sentence-transformers
 chromadb
 fastapi
