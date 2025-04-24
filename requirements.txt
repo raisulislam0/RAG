@@ -5,8 +5,8 @@ ollama
 psutil
 
 # Vector database
+chromadb==0.4.18
 sentence-transformers
-chromadb
 fastapi
 uvicorn
 
@@ -32,4 +32,6 @@ aiohttp
 # Monitoring and logging
 prometheus-client
 python-dotenv
+
+
 
