@@ -1,6 +1,9 @@
 <?xml version="1.0" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_layout.htm</loc>
+  </url>
+  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui.htm</loc>
   </url>
   <url>
@@ -169,9 +172,6 @@
     <loc>https://help.fiftytwo.com/help/en-us/Content/_MP/API/api_promotion.htm</loc>
   </url>
   <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_layout.htm</loc>
-  </url>
-  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui_returns.htm</loc>
   </url>
   <url>
@@ -230,6 +230,12 @@
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/DisclaimerTrademarks/CopyrightDisclaimerTrademarks.htm</loc>
+  </url>
+  <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_diagram.htm#Template</loc>
+  </url>
+  <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_diagram.htm#Autosave</loc>
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui_landing.htm#Structure</loc>
@@ -302,12 +308,6 @@
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_MP/mp.htm</loc>
-  </url>
-  <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_diagram.htm#Template</loc>
-  </url>
-  <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_diagram.htm#Autosave</loc>
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_wsa_articles.htm#Discount</loc>

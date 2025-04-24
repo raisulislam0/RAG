@@ -9,8 +9,8 @@ r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 QUEUE_KEY = "query_queue"
 LOCK_KEY = "query_lock"
-LOCK_EXPIRY = 5  
-ACTIVITY_TIMEOUT = 180  
+LOCK_EXPIRY = 60  
+ACTIVITY_TIMEOUT = 300  
 
 
 # Track when Ollama was last active
