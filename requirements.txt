@@ -5,8 +5,10 @@ ollama
 psutil
 
 # Vector database
-chromadb
 sentence-transformers
+chromadb
+fastapi
+uvicorn
 
 # Web crawling and processing
 requests
