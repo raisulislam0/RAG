@@ -3,6 +3,9 @@ import streamlit as st
 import ollama
 from time import time, sleep
 from uuid import uuid4 
+from random import random
+import os
+os.environ["OLLAMA_HOST"] = "https://11434-m-s-93wdbf8ccew2-a.asia-east1-0.prod.colab.dev/"  
 
 from processor import input_validation, is_repetitive_input, embed_text, build_collection
 import queue_manager as qm
@@ -33,7 +36,7 @@ if 'query_history' not in st.session_state:
 
 if 'current_response' not in st.session_state:
     st.session_state.current_response = {"query": "", "response": "", "sources": []}
-
+current_pos = qm.get_queue_position(st.session_state.session_id)
 def request_stop():
     """Set the stop flag to true and handle cleanup"""
     st.session_state.stop_requested = True
@@ -104,25 +107,34 @@ def main():
                     st.markdown("**Sources:**")
                     for url in item['sources']:
                         st.markdown(f"- {url}")
-                    st.markdown(f"**Time:** {item.get('time', '')}")
+                    
         else:
             st.write("No previous queries")
-
+#↻ Dequeue
     st.title("Welcome to Fiftytwo AI Help & Knowledge Center")
     collection = build_collection()
-
+    
     with st.form("query_form", clear_on_submit=False):
         query = st.text_area(
             "Enter your question",
             label_visibility="visible",
             help="Search for Fiftytwo's products and services"
         )
-        button_text = "🟥 Stop" if st.session_state.is_processing else "↩"
-        button_type = "secondary" if st.session_state.is_processing else "primary"
-        button_help = "Cancel" if button_text == "🟥 Stop" else "Submit"
-        submit_button = st.form_submit_button(button_text, type=button_type, help=button_help)
+
+        if st.session_state.is_processing:
+            button_text = "🟥 Stop" 
+            button_type = "secondary"
+            button_help = "Cancel current processing"
+
+        else:
+            button_text = "↩ Submit"
+            button_type = "primary"
+            button_help = "Submit your query"
+        
+        submit_button = st.form_submit_button(label = button_text, type=button_type, help=button_help)
 
     status_container = st.empty()
+    
 
     if st.session_state.current_response["response"] and not st.session_state.is_processing:
         st.markdown("##### Response")
@@ -131,7 +143,6 @@ def main():
             st.markdown("##### Sources:")
             for url in st.session_state.current_response["sources"]:
                 st.markdown(f"- {url}")
-            st.markdown(f"**Time:** {st.session_state.current_response.get('time', '')}")
 
     if submit_button:
         if st.session_state.is_processing:
@@ -162,9 +173,14 @@ def main():
             st.rerun()
 
     if st.session_state.is_processing and not st.session_state.stop_requested:
-        process_str = "Processing..."
-        with st.spinner(process_str):
-            last_queue_update = 0
+        
+        time_flag = False
+        if st.session_state.is_processing and current_pos == 1:
+            time_flag = True
+        with st.spinner("Processing...", show_time = time_flag):
+            last_queue_update = time()  # Set this only once at the beginning
+            queue_start_time = time()   # Track when we entered the queue
+            # In queue phase
             while not qm.is_my_turn(st.session_state.session_id):
                 qm.clean_first_if_stale()
                 if st.session_state.stop_requested:
@@ -174,25 +190,37 @@ def main():
                     st.rerun()
                     return
                 qm.update_activity(st.session_state.session_id)
-                current_pos = qm.get_queue_position(st.session_state.session_id)
                 lock_holder = qm.get_lock_holder()
                 if current_pos == -1:
                     status_container.empty()
                     st.session_state.is_processing = False
                     st.rerun()
                     return
+                current_time = time()
                 if current_pos > 1:
-                    status_container.info(f"Your request is in queue. Position: {current_pos}")
+                    elapsed_time = current_time - queue_start_time
+                    initial_wait_time = current_pos * 90 + int(random() * 2) + 1
+                    remaining_wait_time = max(initial_wait_time - elapsed_time, 0)
+                    
+                    minutes = int(remaining_wait_time // 60)
+                    seconds = int(remaining_wait_time % 60)
+                    
+                    if seconds > 0 or minutes > 0:
+                        status_container.info(f"Your query is in queue position {current_pos}. Approx. waiting period: {minutes}m {seconds}s.")
+                    else:
+                        status_container.info(f"Your query is in queue position {current_pos}. Processing soon...")
                 else:
                     status_container.info("Processing your request...")
-                current_time = time()
+                
                 if current_time - last_queue_update > 1:
                     last_queue_update = current_time
                     if current_pos == 1 and not lock_holder:
                         qm.process_next_in_queue()
                 sleep(1)
 
+            # Now we're processing
             status_container.info("Processing your request...")
+            # Rest of processing logic
             if not qm.try_lock(st.session_state.session_id):
                 status_container.warning("Server is busy. Re-submit your query shortly...")
                 qm.dequeue_query(st.session_state.session_id)
@@ -236,6 +264,8 @@ def main():
                     "based on your own knowledge. Moreover, you should not mention anything like The provided "
                     "text does not mention. You should start responding without putting any introduction or conclusion."
                 )
+
+                print(prompt)
 
                 response_placeholder = st.empty()
                 full_response = ""
@@ -282,7 +312,6 @@ def main():
                         "sources": sources_list,
                         "time": time_str
                     })
-                    st.info(f"Response time: {time_str}")
                     st.session_state.is_processing = False
                     st.rerun()
 
