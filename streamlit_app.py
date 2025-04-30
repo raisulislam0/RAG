@@ -282,20 +282,40 @@ def main():
         # Set toggle status - disable if processing or no history exists (both in DB and session)
         toggle_status = st.session_state.is_processing or (not history_exists and not session_history_exists)
         
-        history_on = st.toggle("Enable History", help="Enable response history for context", disabled=toggle_status)
+        # Update the toggle to use and update session state
+        st.session_state.history_enabled = st.toggle("Enable History", 
+                                                   value=st.session_state.history_enabled,
+                                                   help="Enable response history for context", 
+                                                   disabled=toggle_status)
         history_context = ""
-        if history_on and history_exists:
+        if st.session_state.history_enabled:
             try:
+                # Try to get history from database
                 history = retrieve_history_context(st.session_state.session_id)
-            except :
-                st.warning("No history found")
-
-            if history:
-                history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
-            
+                
+                # If no database history but we have session history, use that instead
+                if (not history or len(history) == 0) and len(st.session_state.query_history) > 0:
+                    #st.write("Using session history instead of database history")
+                    history = [(item["query"], item["response"]) for item in st.session_state.query_history]
+                
+                if history and len(history) > 0:
+                    history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
+                    #st.write(f"History context created with {len(history)} items")
+                else:
+                    st.warning("No history available")
+                    
+            except Exception as e:
+                st.warning(f"Error retrieving history: {str(e)}")
+                # Fallback to session state history
+                if len(st.session_state.query_history) > 0:
+                    history = [(item["query"], item["response"]) for item in st.session_state.query_history]
+                    history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
+                    #st.write("Using session history as fallback")
     with col_retry:
         toggle_status = False
-        if st.session_state.is_processing or not st.session_state.history_exist:
+        # Check both database history and session history
+        has_history = st.session_state.history_exist or len(st.session_state.query_history) > 0
+        if st.session_state.is_processing or not has_history:
             toggle_status = True                
         if st.session_state.done:
             # Change from using on_click with form_submit_button to directly handling the query
@@ -458,20 +478,21 @@ def main():
 
                 context = "\n".join([doc for sublist in results['documents'] for doc in sublist])
 
-                if history_on:
+                # Add debug print before prompt construction
+                #st.write(f"Before prompt - History enabled: {st.session_state.history_enabled}, History context exists: {bool(history_context)}")
 
+                if st.session_state.history_enabled and history_context:
                     prompt = (
                         f"You are an AI overview generator based on the following contexts and response history/previous responses given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
                         f"here is your previous responses and their respective queries --beginning of response history -- {history_context} --end of response history--"
                         "based on your own knowledge and previous response/response history. Moreover, you should not mention anything like The provided "
                         "text does not mention. You should start responding without putting any introduction or conclusion. You only mention what is mentioned in the contexts and response history."
-
                         f"Now answer the following question: "
                         f"{query}"
-                    )                    
-                
+                    )
+                    
+                    
                 else:
-
                     prompt = (
                         f"You are an AI overview generator based on the following contexts given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
                         "based on your own knowledge. Moreover, you should not mention anything like The provided "
@@ -480,6 +501,8 @@ def main():
                         f"Now answer the following question: "
                         f"{query}"                        
                     )
+                    
+                    
 
                 #st.write(prompt)
 
