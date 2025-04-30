@@ -1,6 +1,12 @@
 <?xml version="1.0" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_EPOS/epos_activate.htm</loc>
+  </url>
+  <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui_sco.htm</loc>
+  </url>
+  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_layout.htm</loc>
   </url>
   <url>
@@ -16,13 +22,7 @@
     <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_resources.htm</loc>
   </url>
   <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui_sco.htm</loc>
-  </url>
-  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_wsa_till_config.htm</loc>
-  </url>
-  <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_EPOS/epos_activate.htm</loc>
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_EPOS/epos.htm</loc>
@@ -232,6 +232,9 @@
     <loc>https://help.fiftytwo.com/help/en-us/Content/DisclaimerTrademarks/CopyrightDisclaimerTrademarks.htm</loc>
   </url>
   <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/Common/contact.htm</loc>
+  </url>
+  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_diagram.htm#Template</loc>
   </url>
   <url>
@@ -248,9 +251,6 @@
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_WPUD/wpud_component.htm#LanguageSelector</loc>
-  </url>
-  <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/Common/contact.htm</loc>
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/WPU/re_web_pos_ui.htm#Grant</loc>

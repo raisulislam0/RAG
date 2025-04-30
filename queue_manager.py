@@ -5,8 +5,9 @@ import subprocess
 import os
 import signal
 
-
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+# Get Redis host from environment variable or default to localhost
+redis_host = os.environ.get('REDIS_HOST', 'localhost')
+r = redis.Redis(host=redis_host, port=6379, db=0, decode_responses=True)
 
 QUEUE_KEY = "query_queue"
 LOCK_KEY = "query_lock"

@@ -41,40 +41,40 @@ def build_collection(collection_name="crawled_docs"):
         print("Created new collection")
     return collection
 
-def input_validation(text):
-    """Check if input is likely gibberish or too short."""
-    text = text.strip()
+# def input_validation(text):
+#     """Check if input is likely gibberish or too short."""
+#     text = text.strip()
 
-    # Check for basic issues
-    if len(text) < 3 or text.endswith('[') or text.endswith('(') or text.endswith('{'):
-        return True
+#     # Check for basic issues
+#     if len(text) < 3 or text.endswith('[') or text.endswith('(') or text.endswith('{'):
+#         return True
 
-    # Split into words and analyze
-    words = text.lower().split()
-    unique_words = set(words)
+#     # Split into words and analyze
+#     words = text.lower().split()
+#     unique_words = set(words)
 
-    # Check for single word repetition
-    if len(unique_words) == 1 and len(words) > 1:
-        return True
+#     # Check for single word repetition
+#     if len(unique_words) == 1 and len(words) > 1:
+#         return True
 
-    # Check for low word diversity
-    if len(words) >= 3 and len(unique_words) < min(len(words) * 0.5, len(text) * 0.3):
-        return True
+#     # Check for low word diversity
+#     if len(words) >= 3 and len(unique_words) < min(len(words) * 0.5, len(text) * 0.3):
+#         return True
 
-    # Check for unbalanced brackets
-    brackets = {'[': ']', '(': ')', '{': '}', '"': '"', "'": "'"}
-    stack = []
-    for char in text:
-        if char in brackets.keys():
-            stack.append(char)
-        elif char in brackets.values():
-            bracket_keys = list(brackets.keys())
-            bracket_values = list(brackets.values())
-            if not stack or brackets[bracket_keys[bracket_values.index(char)]] != stack[-1]:
-                return True
-            stack.pop()
-    if stack:
-        return True
+#     # Check for unbalanced brackets
+#     brackets = {'[': ']', '(': ')', '{': '}', '"': '"', "'": "'"}
+#     stack = []
+#     for char in text:
+#         if char in brackets.keys():
+#             stack.append(char)
+#         elif char in brackets.values():
+#             bracket_keys = list(brackets.keys())
+#             bracket_values = list(brackets.values())
+#             if not stack or brackets[bracket_keys[bracket_values.index(char)]] != stack[-1]:
+#                 return True
+#             stack.pop()
+#     if stack:
+#         return True
 
     # Check for high consonant ratio (gibberish often has too many consonants)
     consonant_count = sum(1 for c in text.lower() if c in 'bcdfghjklmnpqrstvwxyz!@#$%^&*()_+{}|:"<>?')
