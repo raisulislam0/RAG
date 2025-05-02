@@ -161,8 +161,8 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         
         # Using LangChain's RecursiveCharacterTextSplitter to split content
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000,  
-            chunk_overlap=400,  
+            chunk_size=1024,  
+            chunk_overlap=200,  
             separators=["\n\n", "\n", ".", " ", ""]
         )
         content_chunks = splitter.split_text(cleaned_text)
@@ -221,7 +221,7 @@ async def scheduler():
         await main_task()
         print(time() - start_time)
         print("Cycle complete. Sleeping for 1 hour...")
-        await asyncio.sleep(3600)
+        await asyncio.sleep(6*3600)
 
 if __name__ == "__main__":
     asyncio.run(scheduler())

@@ -1,6 +1,9 @@
 <?xml version="1.0" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://help.fiftytwo.com/help/en-us/Content/_MO/admin/mo_a_setup_appdeploy_mdm.htm</loc>
+  </url>
+  <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_EPOS/epos_activate.htm</loc>
   </url>
   <url>
@@ -122,9 +125,6 @@
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_wsa.htm</loc>
-  </url>
-  <url>
-    <loc>https://help.fiftytwo.com/help/en-us/Content/_MO/admin/mo_a_setup_appdeploy_mdm.htm</loc>
   </url>
   <url>
     <loc>https://help.fiftytwo.com/help/en-us/Content/_EPOS/epos_deactivate.htm</loc>

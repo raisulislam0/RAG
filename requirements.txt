@@ -1,10 +1,15 @@
-streamlit
-ollama
-redis
-psutil
+# HTTP & crawling
 requests
 beautifulsoup4
-chromadb
-asyncio
-langchain
 crawl4ai
+
+# LangChain & embeddings
+langchain
+ollama
+
+# Caching & queue management
+redis
+psutil
+
+# Web UI
+streamlit

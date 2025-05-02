@@ -236,20 +236,20 @@ def main():
     
     with st.form("query_form", clear_on_submit=False):
         query = st.text_area(
-            "Enter your question",
-            label_visibility="visible",
+            "Enter your query",
+            label_visibility="collapsed",
             help="Search for Fiftytwo's products and services",
-            placeholder="e.g. how long can I park a purchase?"
+            placeholder="Ask something about fiftytwo...",
 
         )
 
         if st.session_state.is_processing:
-            button_text = "🟥 Stop" 
+            button_text = "🟥" 
             button_type = "secondary"
-            button_help = "Cancel current processing"
+            button_help = "Cancel/Dequeue"
 
         else:
-            button_text = "↩ Submit"
+            button_text = " ➥ "
             button_type = "primary"
             button_help = "Submit your query"
         
@@ -284,23 +284,19 @@ def main():
         
         # Update the toggle to use and update session state
         st.session_state.history_enabled = st.toggle("Enable History", 
-                                                   value=st.session_state.history_enabled,
-                                                   help="Enable response history for context", 
+                                                   value=st.session_state.history_enabled, 
                                                    disabled=toggle_status)
         history_context = ""
         if st.session_state.history_enabled:
             try:
-                # Try to get history from database
+                
                 history = retrieve_history_context(st.session_state.session_id)
                 
-                # If no database history but we have session history, use that instead
                 if (not history or len(history) == 0) and len(st.session_state.query_history) > 0:
-                    #st.write("Using session history instead of database history")
                     history = [(item["query"], item["response"]) for item in st.session_state.query_history]
                 
                 if history and len(history) > 0:
                     history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
-                    #st.write(f"History context created with {len(history)} items")
                 else:
                     st.warning("No history available")
                     
@@ -310,28 +306,25 @@ def main():
                 if len(st.session_state.query_history) > 0:
                     history = [(item["query"], item["response"]) for item in st.session_state.query_history]
                     history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
-                    #st.write("Using session history as fallback")
     with col_retry:
         toggle_status = False
-        # Check both database history and session history
         has_history = st.session_state.history_exist or len(st.session_state.query_history) > 0
         if st.session_state.is_processing or not has_history:
             toggle_status = True                
         if st.session_state.done:
-            # Change from using on_click with form_submit_button to directly handling the query
-            retry_button = st.button("↻ Retry", help="Retry with different contexts", disabled=toggle_status, type="tertiary")
+            retry_button = st.button("↻ Retry", disabled=toggle_status, type="tertiary")
             if retry_button:
-                # Adjust top_k value as before
+                
                 if st.session_state.top_k <= 8:
                     st.session_state.top_k += 2
                 elif st.session_state.top_k == 0 or st.session_state.top_k < 0:
-                    st.session_state.top_k = 1
-                elif st.session_state.top_k > 8:
+                    st.session_state.top_k = 5
+                elif st.session_state.top_k >= 9:
                     st.session_state.top_k += 1
                 elif st.session_state.top_k >= 15:
                     st.session_state.top_k -= 1
                 else:
-                    st.session_state.top_k = 1
+                    st.session_state.top_k = 5
                 
                 # Directly trigger the query submission if we have a previous query
                 if st.session_state.current_response["query"]:
@@ -354,7 +347,7 @@ def main():
             st.markdown(f"###### Time: **{st.session_state.current_response['time']}**")
 
     if submit_button:
-        st.session_state.top_k = 1
+        st.session_state.top_k = 5
         if st.session_state.is_processing:
             request_stop()
             if not qm.is_my_turn(st.session_state.session_id):
@@ -505,6 +498,7 @@ def main():
                     
 
                 #st.write(prompt)
+                print(prompt)
 
                 response_placeholder = st.empty()
                 full_response = ""
