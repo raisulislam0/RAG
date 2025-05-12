@@ -301,8 +301,7 @@ def main():
                     history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
     with col_retry:
         toggle_status = False
-        has_history = st.session_state.history_exist or len(st.session_state.query_history) > 0
-        if st.session_state.is_processing or not has_history:
+        if st.session_state.is_processing or not st.session_state.done:
             toggle_status = True                
         if st.session_state.done:
             retry_button = st.button("↻ Retry", disabled=toggle_status, type="tertiary")
