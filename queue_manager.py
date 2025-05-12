@@ -5,7 +5,6 @@ import subprocess
 import os
 import signal
 
-# Get Redis host from environment variable or default to localhost
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
 r = redis.Redis(host=redis_host, port=6379, db=0, decode_responses=True)
 
@@ -14,8 +13,6 @@ LOCK_KEY = "query_lock"
 LOCK_EXPIRY = 60  
 ACTIVITY_TIMEOUT = 300  
 
-
-# Track when Ollama was last active
 LAST_OLLAMA_ACTIVITY_KEY = "last_ollama_activity"
 
 def is_in_queue(session_id):
@@ -104,10 +101,8 @@ def get_ollama_idle_time():
 def interrupt_ollama():
     """Send SIGINT to the Ollama process to gracefully interrupt processing"""
     try:
-        # Instead of killing the process, we'll use Ollama's API to cancel the generation
         import requests
         try:
-            # Try to cancel any running generation using Ollama's API
             requests.post('http://localhost:11434/api/generate', 
                          json={'prompt': '', 'model': ''}, 
                          timeout=1)
@@ -115,13 +110,10 @@ def interrupt_ollama():
         except Exception as e:
             print(f"Error canceling Ollama generation via API: {e}")
             
-        # Fallback: Try to send SIGINT to Ollama process
-        # This should interrupt the current generation without stopping the server
         ollama_procs = [p for p in psutil.process_iter(['pid', 'name']) if 'ollama' in p.info['name'].lower()]
         if ollama_procs:
             for proc in ollama_procs:
                 try:
-                    # Send SIGINT (Ctrl+C equivalent) instead of terminating
                     os.kill(proc.pid, signal.SIGINT)
                     print(f"Sent SIGINT to Ollama process {proc.pid}")
                 except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as e:

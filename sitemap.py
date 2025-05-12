@@ -41,17 +41,13 @@ class SitemapGenerator:
             
         parsed = UP.urlparse(url)
         
-        
-        # Check if URL is in the same domain
         if parsed.netloc != self.domain:
             return False
             
-        # Skip URLs with certain file extensions
         ignored_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.xml']
         if any(url.lower().endswith(ext) for ext in ignored_extensions):
             return False
             
-        # Skip URLs with certain patterns
         ignored_patterns = ['logout', 'login', 'sign-in', 'sign-out', 'search', 'print']
         if any(pattern in url.lower() for pattern in ignored_patterns):
             return False
@@ -62,18 +58,15 @@ class SitemapGenerator:
         """Crawl the website and collect URLs"""
         print(f"Starting crawl from {self.start_url}")
         
-        # Reset state for each run
         self.visited_urls = set()
         self.sitemap_urls = []
         
-        # Start with the initial URL
         queue = [self.start_url]
         pages_crawled = 0
         
         while queue and pages_crawled < max_pages:
             url = queue.pop(0)
             
-            # Skip if already visited
             if url in self.visited_urls:
                 continue
                 
@@ -84,21 +77,16 @@ class SitemapGenerator:
                 print(f"Crawling: {url}")
                 response = requests.get(url, timeout=10)
                 
-                # Skip if not HTML
                 content_type = response.headers.get('Content-Type', '')
                 if 'text/html' not in content_type.lower():
                     continue
                     
-                # Add to sitemap
                 if url != self.start_url:
                     self.sitemap_urls.append(url)
                     pages_crawled += 1
                 
-                # Parse HTML
                 soup = BeautifulSoup(response.text, 'html.parser')
 
-                
-                # Extract links
                 for link in soup.find_all('a', href=True):
                     href = link['href']
                     normalized_url = self._normalize_url(href, url)
@@ -115,25 +103,18 @@ class SitemapGenerator:
         """Generate the sitemap XML"""
         print("Generating sitemap.xml...")
         
-        # Create the root element
         urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         
-        
-        # Add URLs to sitemap
         for url in self.sitemap_urls:
             url_element = ET.SubElement(urlset, "url")
             
-            # Add location
             loc = ET.SubElement(url_element, "loc")
             loc.text = url
             
-                       
-        # Convert to string and pretty print
         xml_str = ET.tostring(urlset, encoding="utf-8")
         dom = xml.dom.minidom.parseString(xml_str)
         pretty_xml = dom.toprettyxml(indent="  ")
         
-        # Write to file
         with open(self.output_file, 'w', encoding='utf-8') as f:
             f.write(pretty_xml)
             

@@ -27,16 +27,13 @@ def clean_text(html_content):
     """Convert HTML content to clean Markdown text with enhanced pattern removal."""
     soup = BeautifulSoup(html_content, 'html.parser')
 
-    # Convert headers to Markdown
     for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
         tag.insert_before(f"{'#' * int(tag.name[1])} {tag.get_text()}\n")
         tag.decompose()
 
-    # Remove all anchor tags
     for tag in soup.find_all('a', href=True):
         tag.decompose()
 
-    # Bold and italic
     for tag in soup.find_all('strong'):
         tag.insert_before(f"**{tag.get_text()}**")
         tag.decompose()
@@ -45,29 +42,25 @@ def clean_text(html_content):
         tag.insert_before(f"*{tag.get_text()}*")
         tag.decompose()
 
-    # Lists
     for tag in soup.find_all('ul'):
         tag.insert_before("\n")
         for li in tag.find_all('li'):
             li.insert_before(f"- {li.get_text()}\n")
         tag.decompose()
 
-    # Paragraphs
     for tag in soup.find_all('p'):
         tag.insert_before(f"{tag.get_text()}\n\n")
         tag.decompose()
 
     text = soup.get_text()
 
-    # First step: Normalize whitespace - this helps with consistent pattern matching
     text = re.sub(r'\s+', ' ', text)
 
-    # Remove any raw URLs and Markdown-style links
     text = re.sub(r'https?://\S+', '', text)                    
     text = re.sub(r'www\.\S+', '', text)                        
     text = re.sub(r'\[.*?\]\s*https?://\S+', '', text)          
     text = re.sub(r'\[\s*\]', '', text)                         
-    text = re.sub(r'\[.*?\]', '', text) #non-greedy match [first] and [second]                        
+    text = re.sub(r'\[.*?\]', '', text) 
 
     text = re.sub(r'Last update:\s+\d{1,2}\s+\w+,?\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+CET.*?(?=\n|$)', '', text, flags=re.IGNORECASE)
     text = re.sub(r'Share this page with your colleagues.*?(?=\n|$)', '', text)
@@ -101,17 +94,13 @@ def clean_text(html_content):
         r'Filter:'  
     ]
     
-    # Apply each general pattern
     for pattern in general_patterns:
         text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     
-    # Clean up any words ending with square bracket
     text = re.sub(r'(\w+)\]', r'\1', text)
     
-    # Re-normalize whitespace after all the replacements
     text = re.sub(r'\s+', ' ', text)
     
-    # Remove all special characters EXCEPT periods and some punctuation
     text = re.sub(r'[^\w\s\.\-\'\,\;\:\?]', '', text)
     
     return text.strip()
@@ -148,7 +137,6 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         result = await crawler.arun(url=url)
         cleaned_text = clean_text(result.markdown)
 
-        # Create a temporary file for processing
         filename = url.replace('://', '_').replace('/', '_').replace('?', '_').replace('&', '_')
         if len(filename) > 100:
             filename = filename[:100]
@@ -159,7 +147,6 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
             f.write(cleaned_text)
         print(f"Processing: {url}")
         
-        # Using LangChain's RecursiveCharacterTextSplitter to split content
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=1024,  
             chunk_overlap=200,  
@@ -183,7 +170,6 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
             )
             print(f"Embedded chunk {i+1}/{len(content_chunks)} from {url}")
             
-        # Remove the temporary file after processing
         if os.path.exists(filepath):
             os.remove(filepath)
             
@@ -220,8 +206,8 @@ async def scheduler():
         qm.start_ollama()
         await main_task()
         print(time() - start_time)
-        print("Cycle complete. Sleeping for 1 hour...")
-        await asyncio.sleep(6*3600)
+        print("Cycle complete. Sleeping for 7 hour...")
+        await asyncio.sleep(7*4000)
 
 if __name__ == "__main__":
     asyncio.run(scheduler())

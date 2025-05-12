@@ -7,9 +7,7 @@ from random import random
 import sqlite3
 import os
 
-# Get Ollama URL from environment variable or default to localhost
 OLLAMA_URL = os.environ.get('OLLAMA', 'http://localhost:11434')
-# Configure Ollama client with the correct URL
 ollama.host = OLLAMA_URL
 print(f"Connecting to Ollama at: {OLLAMA_URL}")
 
@@ -47,6 +45,8 @@ if 'history_exist' not in st.session_state:
 if 'history_enabled' not in st.session_state:
     st.session_state.history_enabled = False
 
+if 'partial_response' not in st.session_state:
+    st.session_state.partial_response = ""
 
 if 'current_response' not in st.session_state:
     st.session_state.current_response = {"query": "", "response": "", "sources": []}
@@ -80,6 +80,16 @@ def handle_stop_and_restart(status_container, force_restart=False):
         status_container: Streamlit container for status messages
         force_restart: If True, force interrupt Ollama even if there are active queries
     """
+    if 'partial_response' in st.session_state and st.session_state.partial_response:
+        st.session_state.current_response["response"] = st.session_state.partial_response
+        if st.session_state.current_response.get("query"):
+            st.session_state.query_history.append({
+                "query": st.session_state.current_response["query"],
+                "response": st.session_state.partial_response,
+                "sources": st.session_state.current_response.get("sources", []),
+                "time": "stopped"
+            })
+    
     reset_state()
     queue_length = qm.get_queue_length()
     lock_holder = qm.get_lock_holder()
@@ -87,7 +97,7 @@ def handle_stop_and_restart(status_container, force_restart=False):
                            (lock_holder and lock_holder != st.session_state.session_id)
 
     if not other_active_queries or force_restart:
-        qm.interrupt_ollama()  # Send SIGINT to Ollama
+        qm.interrupt_ollama()  
         status_container.empty()
     else:
         status_container.empty()
@@ -115,11 +125,9 @@ def response_history_database(session_id=None, query=None, full_response=None):
     conn = sqlite3.connect('response_history.db')
     c = conn.cursor()
     
-    # Create table if it doesn't exist
     c.execute('''CREATE TABLE IF NOT EXISTS responses
                  (session_id, query text, response text, timestamp INTEGER)''')
     
-    # Store query response if parameters are provided
     if session_id and query and full_response:
         current_time = int(time())
         c.execute('INSERT INTO responses (session_id, query, response, timestamp) VALUES (?, ?, ?, ?)',
@@ -143,21 +151,16 @@ def cleanup_history_database():
     conn = sqlite3.connect('response_history.db')
     c = conn.cursor()
     
-    # Add timestamp column if it doesn't exist
     try:
         c.execute("SELECT timestamp FROM responses LIMIT 1")
     except sqlite3.OperationalError:
-        # Column doesn't exist, add it
         c.execute("ALTER TABLE responses ADD COLUMN timestamp INTEGER DEFAULT 0")
-        # Update existing rows with current timestamp
         current_time = int(time())
         c.execute("UPDATE responses SET timestamp = ? WHERE timestamp = 0", (current_time,))
         conn.commit()
     
-    # Calculate cutoff time (8 hours ago)
     eight_hours_ago = int(time()) - (8 * 60 * 60)
     
-    # Delete entries older than 8 hours
     c.execute("DELETE FROM responses WHERE timestamp < ?", (eight_hours_ago,))
     deleted_count = c.rowcount
     
@@ -176,19 +179,19 @@ def delete_history_item(session_id, query):
     conn.commit()
     conn.close()
 
-
-
-
 def main():
     
     ensure_ollama_fresh_start()
     check_stale_sessions()
     current_time = time()
     
+    # Initialize current_pos here
+    current_pos = qm.get_queue_position(st.session_state.session_id)
+    
     if 'last_db_cleanup' not in st.session_state:
         st.session_state.last_db_cleanup = current_time
     
-    if current_time - st.session_state.last_db_cleanup > 28800:  # 8 hours in seconds
+    if current_time - st.session_state.last_db_cleanup > 28800:
         cleanup_count = cleanup_history_database()
         st.session_state.last_db_cleanup = current_time
         print(f"Database cleanup: removed {cleanup_count} old history entries")
@@ -210,18 +213,16 @@ def main():
                         for url in item['sources']:
                             st.markdown(f"- {url}")
                 with col2:
-                    # Create a unique key for each delete button
                     disable_status = False
                     if st.session_state.is_processing:
                         disable_status = True   
                     delete_key = f"delete_history_{i}"
                     if st.button("🗑", key=delete_key, disabled=disable_status):
                         delete_history_item(st.session_state.session_id, item['query'])
-                        # Remove from session state history too
                         st.session_state.query_history.remove(item)
                         st.rerun()
         else:
-            st.write("No previous queries")#↻ Dequeue
+            st.write("No previous queries")
 
     
     col1, col2 = st.columns([9, 1])
@@ -258,31 +259,24 @@ def main():
     status_container = st.empty()
 
     col_history, col_retry = st.columns([1, 3])
-    # History toggle button for considering response history
     with col_history:
-        # Check if history exists in the database and in session state
         history_exists = False
         try:
             history = retrieve_history_context(st.session_state.session_id)
             history_exists = len(history) > 0
-            # Update the session state to reflect if history exists
             st.session_state.history_exist = history_exists
         except:
             history_exists = False
             st.session_state.history_exist = False
-        
-        # Also check if query_history in session state is not empty
+    
         session_history_exists = len(st.session_state.query_history) > 0
         
-        # If no history exists anywhere, automatically turn off the history toggle
         if not history_exists and not session_history_exists:
 
             st.session_state.history_enabled = False
         
-        # Set toggle status - disable if processing or no history exists (both in DB and session)
         toggle_status = st.session_state.is_processing or (not history_exists and not session_history_exists)
         
-        # Update the toggle to use and update session state
         st.session_state.history_enabled = st.toggle("Enable History", 
                                                    value=st.session_state.history_enabled, 
                                                    disabled=toggle_status)
@@ -302,7 +296,6 @@ def main():
                     
             except Exception as e:
                 st.warning(f"Error retrieving history: {str(e)}")
-                # Fallback to session state history
                 if len(st.session_state.query_history) > 0:
                     history = [(item["query"], item["response"]) for item in st.session_state.query_history]
                     history_context = "\n".join([f"query: {item[0]}\nResponse: {item[1]}" for item in history])
@@ -315,18 +308,11 @@ def main():
             retry_button = st.button("↻ Retry", disabled=toggle_status, type="tertiary")
             if retry_button:
                 
-                if st.session_state.top_k <= 8:
+                if st.session_state.top_k < 14:
                     st.session_state.top_k += 2
-                elif st.session_state.top_k == 0 or st.session_state.top_k < 0:
-                    st.session_state.top_k = 5
-                elif st.session_state.top_k >= 9:
-                    st.session_state.top_k += 1
-                elif st.session_state.top_k >= 15:
+                if st.session_state.top_k >= 14 and st.session_state.top_k > 5:
                     st.session_state.top_k -= 1
-                else:
-                    st.session_state.top_k = 5
                 
-                # Directly trigger the query submission if we have a previous query
                 if st.session_state.current_response["query"]:
                     query = st.session_state.current_response["query"]
                     reset_state()
@@ -354,7 +340,6 @@ def main():
                 qm.dequeue_query(st.session_state.session_id)
                 status_container.empty()
             else:
-                # If we have a partial response, save it
                 if 'partial_response' in st.session_state and st.session_state.partial_response:
                     st.session_state.current_response["response"] = st.session_state.partial_response
                     st.session_state.query_history.append({
@@ -390,11 +375,11 @@ def main():
         if st.session_state.is_processing and current_pos == 1:
             time_flag = True
         with st.spinner("Processing...", show_time = time_flag):
-            last_queue_update = time()  # Set this only once at the beginning
-            queue_start_time = time()   # Track when we entered the queue
-            # In queue phase
+            last_queue_update = time()  
+            queue_start_time = time()   
             while not qm.is_my_turn(st.session_state.session_id):
                 qm.clean_first_if_stale()
+                current_pos = qm.get_queue_position(st.session_state.session_id)
                 if st.session_state.stop_requested:
                     qm.dequeue_query(st.session_state.session_id)
                     status_container.warning("Query cancelled.")
@@ -430,9 +415,9 @@ def main():
                         qm.process_next_in_queue()
                 sleep(1)
 
-            # Now we're processing
+            
             status_container.info("Processing your request...")
-            # Rest of processing logic
+            
             if not qm.try_lock(st.session_state.session_id):
                 status_container.warning("Server is busy. Re-submit your query shortly...")
                 qm.dequeue_query(st.session_state.session_id)
@@ -471,9 +456,6 @@ def main():
 
                 context = "\n".join([doc for sublist in results['documents'] for doc in sublist])
 
-                # Add debug print before prompt construction
-                #st.write(f"Before prompt - History enabled: {st.session_state.history_enabled}, History context exists: {bool(history_context)}")
-
                 if st.session_state.history_enabled and history_context:
                     prompt = (
                         f"You are an AI overview generator based on the following contexts and response history/previous responses given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
@@ -495,8 +477,6 @@ def main():
                         f"{query}"                        
                     )
                     
-                    
-
                 #st.write(prompt)
                 print(prompt)
 
@@ -509,13 +489,18 @@ def main():
                     handle_stop_and_restart(status_container)
                     return
 
+                
+                if 'partial_response' not in st.session_state:
+                    st.session_state.partial_response = ""
+
+                
+                st.session_state.partial_response = ""
+
                 response_stream = ollama.generate(model="llama3.2", prompt=prompt, stream=True)
                 chunk_counter = 0
-                st.session_state.partial_response = ""  # Initialize partial response
 
                 for chunk in response_stream:
                     if st.session_state.stop_requested:
-                        # Save the partial response before stopping
                         st.session_state.partial_response = full_response
                         handle_stop_and_restart(status_container)
                         break
@@ -525,7 +510,7 @@ def main():
                     if "response" in chunk:
                         chunk_text = chunk["response"]
                         full_response += chunk_text
-                        st.session_state.partial_response = full_response  # Update partial response
+                        st.session_state.partial_response = full_response  
                         response_placeholder.markdown(full_response, unsafe_allow_html=True)
 
                 if not st.session_state.stop_requested and full_response:

@@ -2,6 +2,7 @@
 requests
 beautifulsoup4
 crawl4ai
+chromadb
 
 # LangChain & embeddings
 langchain
@@ -13,3 +14,4 @@ psutil
 
 # Web UI
 streamlit
+playwright

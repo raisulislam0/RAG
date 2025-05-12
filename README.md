@@ -1,19 +1,48 @@
-# Fiftytwo AI Help Center
+## Running the Project with Docker
 
-This project is a **Streamlit-based AI Help Center** for **Fiftytwo**, a retail solutions provider. The system:
+This project is fully containerized for easy local development and deployment. The setup uses **Python 3.11-slim** for the application and the latest official **Redis** image for queue management. All Python dependencies are installed in a virtual environment as specified in `requirements.txt`.
 
-- Crawls Fiftytwo's help documentation website using a **sitemap generator**
-- Cleans and processes the **HTML content into text**
-- Embeds the text chunks using **Ollama's embedding model**
-- Stores these embeddings in a **ChromaDB vector database**
-- Provides a **user interface** where users can ask questions
-- Implements a **queue system with Redis** to manage concurrent requests
-- Retrieves relevant documentation based on **semantic search**
-- Generates responses using the **Llama3.2 model via Ollama**
-- Displays the response with **source citations**
+### Quick Start
 
-The application includes:
+1. **Build and launch the services:**
 
-- **Input validation**
-- **Queue management**
-- A **streaming response interface** to create a responsive knowledge base for Fiftytwo's products and services
+   ```bash
+   docker compose up --build
+   ```
+
+   This command builds the application image and starts both the Streamlit app and Redis services.
+
+2. **Access the AI Help Center:**
+
+   - Open your browser to [http://localhost:8501](http://localhost:8501) to use the Streamlit UI.
+
+### Service Overview
+
+- **Streamlit App** (`python-streamlit`)
+  - Runs on **Python 3.11-slim**
+  - Exposes port **8501** (host → container)
+  - Installs dependencies from `requirements.txt` in a virtual environment
+  - Runs as a non-root user for security
+  - Depends on Redis for queue management
+
+- **Redis**
+  - Uses the latest official image
+  - Data is persisted in the `redis-data` Docker volume
+  - Healthcheck is enabled for reliability
+
+### Configuration
+
+- **Environment Variables:**
+  - No required environment variables by default. If you need to set any, create a `.env` file and uncomment the `env_file` line in `compose.yaml`.
+
+- **Networks and Volumes:**
+  - Both services are connected via the `appnet` Docker network
+  - Redis data is stored in the `redis-data` volume for persistence
+
+### Ports
+
+- **8501:** Streamlit UI (host → container)
+
+---
+
+For advanced configuration or troubleshooting, refer to the `Dockerfile` and `compose.yaml` in the project root.
