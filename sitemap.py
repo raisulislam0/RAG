@@ -44,7 +44,7 @@ class SitemapGenerator:
         if parsed.netloc != self.domain:
             return False
             
-        ignored_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.xml']
+        ignored_extensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz']
         if any(url.lower().endswith(ext) for ext in ignored_extensions):
             return False
             
@@ -105,12 +105,26 @@ class SitemapGenerator:
         
         urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         
-        for url in self.sitemap_urls:
+        # Add manually specified URLs that might be missed by the crawler
+        manual_urls = [
+            "https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_web_pos_ui_add_printer.htm",
+            "https://help.fiftytwo.com/help/en-us/Content/Common/help_help.htm",
+            "https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_wsa_receipt_search.htm",
+            "https://help.fiftytwo.com/help/en-us/Content/_RE/re_returns_corrections.htm",
+            "https://help.fiftytwo.com/help/en-us/Content/_RE/admin/re_transaction_types.htm"
+        ]
+        
+        # Add all discovered URLs
+        all_urls = set(self.sitemap_urls)
+        
+        # Add manual URLs to the set to avoid duplicates
+        all_urls.update(manual_urls)
+        
+        for url in all_urls:
             url_element = ET.SubElement(urlset, "url")
-            
             loc = ET.SubElement(url_element, "loc")
             loc.text = url
-            
+        
         xml_str = ET.tostring(urlset, encoding="utf-8")
         dom = xml.dom.minidom.parseString(xml_str)
         pretty_xml = dom.toprettyxml(indent="  ")
@@ -120,7 +134,7 @@ class SitemapGenerator:
             
         print(f"Sitemap generated and saved to {self.output_file}")
         
-    def run(self, max_pages=1000):
+    def run(self, max_pages=10000):
         """Run the sitemap generator"""
         self.crawl(max_pages)
         self.generate_sitemap()
@@ -131,7 +145,7 @@ def scheduler():
     while True:
         print("Starting sitemap generation cycle...")
         generator = SitemapGenerator(start_url)
-        generator.run(max_pages=500)  
+        generator.run()  
         print("Sitemap generation cycle complete. Sleeping for 6 hours...\n")
         sleep(6 * 3600)
 

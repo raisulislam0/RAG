@@ -14,6 +14,10 @@ import queue_manager as qm
 # Suppress ChromaDB logs
 logging.getLogger('chromadb').setLevel(logging.ERROR)
 
+from typing import Optional
+import time as time_module
+from playwright.async_api import Error as PlaywrightError
+
 def last_modified(url):
     """Check the last modified date of a URL."""
     response = requests.head(url)
@@ -26,6 +30,32 @@ def last_modified(url):
 def clean_text(html_content):
     """Convert HTML content to clean Markdown text with enhanced pattern removal."""
     soup = BeautifulSoup(html_content, 'html.parser')
+
+    # Add table processing before other elements
+    for table in soup.find_all('table'):
+        markdown_table = []
+        
+        # Process headers
+        headers = []
+        for th in table.find_all('th'):
+            headers.append(th.get_text().strip())
+        
+        if headers:
+            markdown_table.append('| ' + ' | '.join(headers) + ' |')
+            markdown_table.append('| ' + ' | '.join(['---' for _ in headers]) + ' |')
+        
+        # Process rows
+        for row in table.find_all('tr'):
+            cells = []
+            for td in row.find_all('td'):
+                cells.append(td.get_text().strip())
+            if cells:  # Only add non-empty rows
+                markdown_table.append('| ' + ' | '.join(cells) + ' |')
+        
+        # Replace table with markdown version
+        if markdown_table:
+            table.insert_before('\n' + '\n'.join(markdown_table) + '\n\n')
+        table.decompose()
 
     for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
         tag.insert_before(f"{'#' * int(tag.name[1])} {tag.get_text()}\n")
@@ -118,6 +148,23 @@ async def get_urls_from_local_sitemap(sitemap_path):
         print(f"Error parsing sitemap: {str(e)}")
         return []
 
+async def retry_with_backoff(func, max_retries=3, initial_delay=1):
+    """Retry a function with exponential backoff."""
+    delay = initial_delay
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        try:
+            return await func()
+        except Exception as e:
+            last_exception = e
+            if attempt == max_retries - 1:
+                raise
+            await asyncio.sleep(delay)
+            delay *= 2
+    
+    raise last_exception
+
 async def crawl_and_embed_url(crawler, url, output_dir, collection):
     """Crawl a URL, clean content, split into chunks, embed, and store in ChromaDB."""
     try:
@@ -134,8 +181,23 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
                 collection.delete(where={"url": url})
                 print(f"Deleted previous version of {url} from database")
         
-        result = await crawler.arun(url=url)
+        async def fetch_content():
+            result = await crawler.arun(url=url, timeout=120000)  # Increase timeout to 120 seconds
+            if not result or not result.markdown:
+                raise ValueError("No content received from crawler")
+            return result
+
+        result = await retry_with_backoff(fetch_content)
+        
+        # Add validation for markdown content
+        if not result.markdown or not isinstance(result.markdown, str):
+            print(f"Warning: Invalid or empty content received for {url}")
+            return
+
         cleaned_text = clean_text(result.markdown)
+        if not cleaned_text.strip():
+            print(f"Warning: No content after cleaning for {url}")
+            return
 
         filename = url.replace('://', '_').replace('/', '_').replace('?', '_').replace('&', '_')
         if len(filename) > 100:
@@ -175,6 +237,10 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
             
     except Exception as e:
         print(f"Error processing {url}: {str(e)}")
+        # Log the full error for debugging
+        import traceback
+        print(f"Full error trace for {url}:")
+        print(traceback.format_exc())
 
 async def main_task():
     """Run the crawling and embedding process once."""
@@ -187,10 +253,19 @@ async def main_task():
     urls = await get_urls_from_local_sitemap(sitemap_path)
     print(f"Found {len(urls)} URLs in sitemap")
     
-    async with AsyncWebCrawler() as crawler:
+    async with AsyncWebCrawler(
+        page_timeout=120000,  # 120 seconds timeout
+        max_concurrent=5,     # Reduce concurrent requests
+        retry_on_timeout=True
+    ) as crawler:
         tasks = [crawl_and_embed_url(crawler, url, output_dir, collection) for url in urls]
         print(f"Processing {len(tasks)} URLs concurrently")
-        await asyncio.gather(*tasks)
+        # Add chunking to process URLs in batches
+        chunk_size = 5
+        for i in range(0, len(tasks), chunk_size):
+            chunk = tasks[i:i + chunk_size]
+            await asyncio.gather(*chunk)
+            await asyncio.sleep(2)  # Add delay between chunks
         
     print(f"Crawling and embedding complete. Vector database updated.")
     
