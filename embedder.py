@@ -148,8 +148,8 @@ async def crawl_and_embed_url(crawler, url, output_dir, collection):
         print(f"Processing: {url}")
         
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1024,  
-            chunk_overlap=200,  
+            chunk_size=1500,  
+            chunk_overlap=100,  
             separators=["\n\n", "\n", ".", " ", ""]
         )
         content_chunks = splitter.split_text(cleaned_text)
