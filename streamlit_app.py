@@ -57,6 +57,9 @@ if 'top_k' not in st.session_state:
 if 'done' not in st.session_state:
     st.session_state.done = False
 
+if 'retry_count' not in st.session_state:
+    st.session_state.retry_count = 0    
+
 current_pos = qm.get_queue_position(st.session_state.session_id)
 
 def request_stop():
@@ -159,9 +162,9 @@ def cleanup_history_database():
         c.execute("UPDATE responses SET timestamp = ? WHERE timestamp = 0", (current_time,))
         conn.commit()
     
-    eight_hours_ago = int(time()) - (8 * 60 * 60)
+    half_hour_ago = int(time()) - (1800)
     
-    c.execute("DELETE FROM responses WHERE timestamp < ?", (eight_hours_ago,))
+    c.execute("DELETE FROM responses WHERE timestamp < ?", (half_hour_ago,))
     deleted_count = c.rowcount
     
     conn.commit()
@@ -191,7 +194,7 @@ def main():
     if 'last_db_cleanup' not in st.session_state:
         st.session_state.last_db_cleanup = current_time
     
-    if current_time - st.session_state.last_db_cleanup > 28800:
+    if current_time - st.session_state.last_db_cleanup > 1800:
         cleanup_count = cleanup_history_database()
         st.session_state.last_db_cleanup = current_time
         print(f"Database cleanup: removed {cleanup_count} old history entries")
@@ -305,12 +308,21 @@ def main():
             toggle_status = True                
         if st.session_state.done:
             retry_button = st.button("↻ Retry", disabled=toggle_status, type="tertiary")
+            
             if retry_button:
-                
-                if st.session_state.top_k < 14:
-                    st.session_state.top_k += 2
-                if st.session_state.top_k >= 14 and st.session_state.top_k > 5:
-                    st.session_state.top_k -= 1
+                st.session_state.retry_count += 1
+                if st.session_state.retry_count < 5:
+                    
+                    if st.session_state.top_k <= 13:
+                        st.session_state.top_k += 2
+                elif st.session_state.retry_count >= 5:  
+                            
+                    if st.session_state.top_k >= 14:  
+                        st.session_state.top_k -= 1  
+                    elif st.session_state.top_k > 5:  
+                        st.session_state.top_k -= 1
+                print(st.session_state.retry_count)
+                print(st.session_state.top_k)        
                 
                 if st.session_state.current_response["query"]:
                     query = st.session_state.current_response["query"]

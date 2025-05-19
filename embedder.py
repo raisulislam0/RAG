@@ -15,8 +15,8 @@ import queue_manager as qm
 logging.getLogger('chromadb').setLevel(logging.ERROR)
 
 from typing import Optional
-import time as time_module
-from playwright.async_api import Error as PlaywrightError
+
+
 
 def last_modified(url):
     """Check the last modified date of a URL."""
@@ -31,31 +31,50 @@ def clean_text(html_content):
     """Convert HTML content to clean Markdown text with enhanced pattern removal."""
     soup = BeautifulSoup(html_content, 'html.parser')
 
-    # Add table processing before other elements
+    # Improved table processing
     for table in soup.find_all('table'):
         markdown_table = []
+        rows = table.find_all('tr')
         
-        # Process headers
+        if not rows:
+            continue
+            
+        # Determine if first row contains headers
+        first_row = rows[0]
+        has_headers = first_row.find_all('th')
+        
+        # Process headers (either th elements or first row)
         headers = []
-        for th in table.find_all('th'):
-            headers.append(th.get_text().strip())
-        
+        if has_headers:
+            for th in first_row.find_all('th'):
+                headers.append(th.get_text().strip())
+            rows = rows[1:]  # Skip first row in further processing
+        else:
+            # Use first row as header if no th elements
+            for td in first_row.find_all('td'):
+                headers.append(td.get_text().strip())
+            rows = rows[1:]  # Skip first row in further processing
+            
         if headers:
             markdown_table.append('| ' + ' | '.join(headers) + ' |')
             markdown_table.append('| ' + ' | '.join(['---' for _ in headers]) + ' |')
         
-        # Process rows
-        for row in table.find_all('tr'):
+        # Process data rows
+        for row in rows:
             cells = []
-            for td in row.find_all('td'):
-                cells.append(td.get_text().strip())
+            # Get both th and td cells (some tables mix them)
+            for cell in row.find_all(['td', 'th']):
+                cells.append(cell.get_text().strip())
             if cells:  # Only add non-empty rows
                 markdown_table.append('| ' + ' | '.join(cells) + ' |')
         
         # Replace table with markdown version
         if markdown_table:
-            table.insert_before('\n' + '\n'.join(markdown_table) + '\n\n')
-        table.decompose()
+            new_tag = soup.new_tag('p')
+            new_tag.string = '\n' + '\n'.join(markdown_table) + '\n\n'
+            table.replace_with(new_tag)
+        else:
+            table.decompose()
 
     for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
         tag.insert_before(f"{'#' * int(tag.name[1])} {tag.get_text()}\n")
@@ -254,8 +273,8 @@ async def main_task():
     print(f"Found {len(urls)} URLs in sitemap")
     
     async with AsyncWebCrawler(
-        page_timeout=120000,  # 120 seconds timeout
-        max_concurrent=5,     # Reduce concurrent requests
+        page_timeout=120000,  
+        max_concurrent=5,     
         retry_on_timeout=True
     ) as crawler:
         tasks = [crawl_and_embed_url(crawler, url, output_dir, collection) for url in urls]
@@ -265,7 +284,7 @@ async def main_task():
         for i in range(0, len(tasks), chunk_size):
             chunk = tasks[i:i + chunk_size]
             await asyncio.gather(*chunk)
-            await asyncio.sleep(2)  # Add delay between chunks
+            
         
     print(f"Crawling and embedding complete. Vector database updated.")
     
@@ -281,8 +300,8 @@ async def scheduler():
         qm.start_ollama()
         await main_task()
         print(time() - start_time)
-        print("Cycle complete. Sleeping for 7 hour...")
-        await asyncio.sleep(7*4000)
+        print("Cycle complete. Sleeping for 6 hour...")
+        await asyncio.sleep(6*3720)
 
 if __name__ == "__main__":
     asyncio.run(scheduler())
