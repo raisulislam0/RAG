@@ -344,6 +344,7 @@ def main():
             st.markdown(f"###### Time: **{st.session_state.current_response['time']}**")
 
     if submit_button:
+        st.session_state.retry_count = 0
         st.session_state.top_k = 5
         if st.session_state.is_processing:
             request_stop()
