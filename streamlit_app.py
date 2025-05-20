@@ -155,7 +155,12 @@ def cleanup_history_database():
     c = conn.cursor()
     
     try:
+        c.execute("PRAGMA auto_vacuum = FULL")
         c.execute("SELECT timestamp FROM responses LIMIT 1")
+
+        c.execute("VACUUM")
+        conn.commit()
+        
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE responses ADD COLUMN timestamp INTEGER DEFAULT 0")
         current_time = int(time())
@@ -321,8 +326,8 @@ def main():
                         st.session_state.top_k -= 1  
                     elif st.session_state.top_k > 5:  
                         st.session_state.top_k -= 1
-                print(st.session_state.retry_count)
-                print(st.session_state.top_k)        
+                #print(st.session_state.retry_count)
+                #print(st.session_state.top_k)        
                 
                 if st.session_state.current_response["query"]:
                     query = st.session_state.current_response["query"]
@@ -467,26 +472,23 @@ def main():
                     return
 
                 context = "\n".join([doc for sublist in results['documents'] for doc in sublist])
-
                 if st.session_state.history_enabled and history_context:
                     prompt = (
-                        f"You are an AI overview generator based on the following contexts and response history/previous responses given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
-                        f"here is your previous responses and their respective queries --beginning of response history -- {history_context} --end of response history--"
-                        "based on your own knowledge and previous response/response history. Moreover, you should not mention anything like The provided "
-                        "text does not mention. You should start responding without putting any introduction or conclusion. You only mention what is mentioned in the contexts and response history."
-                        f"Now answer the following question: "
-                        f"{query}"
+                        "You are an AI overview generator that crafts answers strictly based on the provided context and response history. "
+                        "Below is the context extracted from relevant documents:\n\n"
+                        f"--Start of Context--\n{context}\n--End of Context--\n\n"
+                        "Below is the recent response history with corresponding queries:\n\n"
+                        f"--Start of History--\n{history_context}\n--End of History--\n\n"
+                        "Based only on the above, answer the following question concisely and directly  unless instructed otherwise, without any extra preamble or conclusion:\n\n"
+                        f"Question: {query}"
                     )
-                    
-                    
                 else:
                     prompt = (
-                        f"You are an AI overview generator based on the following contexts given in markdown format: --beginning of contexts-- '{context}'--end of contexts--, "
-                        "based on your own knowledge. Moreover, you should not mention anything like The provided "
-                        "text does not mention. You should start responding without putting any introduction or conclusion."
-                        "You only mention what is mentioned in the contexts and response history."
-                        f"Now answer the following question: "
-                        f"{query}"                        
+                        "You are an AI overview generator that derives answers solely from the provided context. "
+                        "Below is the context extracted from relevant documents:\n\n"
+                        f"--Start of Context--\n{context}\n--End of Context--\n\n"
+                        "Now, answer the following question concisely and directly unless instructed otherwise using only the above information, without any extra commentary:\n\n"
+                        f"Question: {query}"
                     )
                     
                 #st.write(prompt)

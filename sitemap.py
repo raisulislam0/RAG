@@ -44,17 +44,15 @@ class SitemapGenerator:
         if parsed.netloc != self.domain:
             return False
             
-        ignored_extensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz']
-        if any(url.lower().endswith(ext) for ext in ignored_extensions):
-            return False
-            
-        ignored_patterns = ['logout', 'login', 'sign-in', 'sign-out', 'search', 'print']
-        if any(pattern in url.lower() for pattern in ignored_patterns):
+        ignored_extensions = ('.pdf', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.wav', \
+            '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.swf', '.exe', '.dll', '.ico', '.svg')
+        
+        if url.lower().endswith(ignored_extensions):
             return False
             
         return True
         
-    def crawl(self, max_pages=1000):
+    def crawl(self, max_pages=100000):
         """Crawl the website and collect URLs"""
         print(f"Starting crawl from {self.start_url}")
         
@@ -75,7 +73,7 @@ class SitemapGenerator:
             try:        
                 
                 print(f"Crawling: {url}")
-                response = requests.get(url, timeout=10)
+                response = requests.get(url)
                 
                 content_type = response.headers.get('Content-Type', '')
                 if 'text/html' not in content_type.lower():
