@@ -107,9 +107,9 @@ def clean_text(html_content):
 
     text = re.sub(r'https?://\S+', '', text)                    
     text = re.sub(r'www\.\S+', '', text)                        
-    text = re.sub(r'\[.*?\]\s*https?://\S+', '', text)          
-    text = re.sub(r'\[\s*\]', '', text)                         
-    text = re.sub(r'\[.*?\]', '', text) 
+    # text = re.sub(r'\[.*?\]\s*https?://\S+', '', text)          
+    # text = re.sub(r'\[\s*\]', '', text)                         
+    # text = re.sub(r'\[.*?\]', '', text) 
 
     text = re.sub(r'Last update:\s+\d{1,2}\s+\w+,?\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+CET.*?(?=\n|$)', '', text, flags=re.IGNORECASE)
     text = re.sub(r'Share this page with your colleagues.*?(?=\n|$)', '', text)
@@ -146,11 +146,11 @@ def clean_text(html_content):
     for pattern in general_patterns:
         text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     
-    text = re.sub(r'(\w+)\]', r'\1', text)
+    # text = re.sub(r'(\w+)\]', r'\1', text)
     
-    text = re.sub(r'\s+', ' ', text)
+    # text = re.sub(r'\s+', ' ', text)
     
-    text = re.sub(r'[^\w\s\.\-\'\,\;\:\?]', '', text)
+    # text = re.sub(r'[^\w\s\.\-\'\,\;\:\?]', '', text)
     
     return text.strip()
 
