@@ -1,5 +1,6 @@
-# Evaluation of Generated Response Against Gemini 2.5 Model
+# Evaluation of Generated Response Against Gemini 2.5 Model (eval.py)
 
+### The script uses python evaluate module to test llm response
 The json files contain Prompt, Reference (Gemini Response), and Candidate(llama3.2) response. 
 Different mertics are used - BLEU, ROUGE, BERTSCORE, F1, etc.
 
