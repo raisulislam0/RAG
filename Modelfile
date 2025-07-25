@@ -1,0 +1,6 @@
+FROM llama3.2:latest
+PARAMETER num_ctx 32768
+
+# ollama create -f Modelfile llama3.2 (to Apply changes on existing model)
+# ollama create llama3.2_ext -f Modelfile (to Create new model)
+

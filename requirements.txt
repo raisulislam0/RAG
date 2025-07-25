@@ -1,17 +1,17 @@
 # HTTP & crawling
-requests
-beautifulsoup4
-crawl4ai
-chromadb
+requests == 2.32.3
+beautifulsoup4 == 4.13.3
+crawl4ai == 0.5.0.post4
+chromadb == 0.6.3
 
 # LangChain & embeddings
-langchain
-ollama
+langchain == 0.3.23
+ollama == 0.4.7
 
 # Caching & queue management
-redis
-psutil
+redis == 6.2.0
+psutil == 7.0.0
 
 # Web UI
-streamlit
-playwright
+streamlit == 1.44.1
+playwright == 1.51.0
