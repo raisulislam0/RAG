@@ -1,12 +1,11 @@
-version: '3'
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8501:8501"
-      - "11434:11434"
+      - "0.0.0.0:8501:8501"  # Explicitly bind to all interfaces
+      - "0.0.0.0:11434:11434"
     volumes:
       - ollama-models:/root/.ollama
       - redis-data:/data
